@@ -14,6 +14,7 @@ internal static class TerrainRpc
     public const int Version = 1;
 
     private const string EditRpc = "BetterHoe_Edit";
+    private const string RestoreRpc = "BetterHoe_Restore";
 
     /// <summary>
     /// Vanilla keeps every vertex within 8 m of its generated height (TerrainComp.LevelTerrain).
@@ -31,6 +32,69 @@ internal static class TerrainRpc
         }
 
         compiler.m_nview.Register<ZPackage>(EditRpc, (_, package) => OnEdit(compiler, package));
+        compiler.m_nview.Register<ZPackage>(RestoreRpc, (_, package) => OnRestore(compiler, package));
+    }
+
+    public static bool SendRestore(TerrainComp compiler, ZPackage package)
+    {
+        if (compiler.m_nview == null || !compiler.m_nview.IsValid())
+        {
+            return false;
+        }
+
+        compiler.m_nview.InvokeRPC(RestoreRpc, package);
+        return true;
+    }
+
+    /// <summary>
+    /// Writes back raw terrain data captured before an edit (undo) or before an undo (redo).
+    /// </summary>
+    private static void OnRestore(TerrainComp compiler, ZPackage package)
+    {
+        if (compiler == null || !compiler.m_initialized || !compiler.m_nview.IsValid() || !compiler.m_nview.IsOwner())
+        {
+            return;
+        }
+
+        int version = package.ReadInt();
+        if (version != Version)
+        {
+            Jotunn.Logger.LogWarning($"Ignoring a terrain restore with version {version}; this client uses version {Version}.");
+            return;
+        }
+
+        Vector3 center = package.ReadVector3();
+        float radius = package.ReadSingle();
+
+        int heightCount = package.ReadInt();
+        for (int i = 0; i < heightCount; i++)
+        {
+            int index = package.ReadInt();
+            bool modified = package.ReadBool();
+            float level = package.ReadSingle();
+            float smooth = package.ReadSingle();
+            if (index >= 0 && index < compiler.m_modifiedHeight.Length)
+            {
+                compiler.m_modifiedHeight[index] = modified;
+                compiler.m_levelDelta[index] = level;
+                compiler.m_smoothDelta[index] = smooth;
+            }
+        }
+
+        int paintCount = package.ReadInt();
+        for (int i = 0; i < paintCount; i++)
+        {
+            int index = package.ReadInt();
+            bool modified = package.ReadBool();
+            Color color = new(package.ReadSingle(), package.ReadSingle(), package.ReadSingle(), package.ReadSingle());
+            if (index >= 0 && index < compiler.m_paintMask.Length)
+            {
+                compiler.m_modifiedPaint[index] = modified;
+                compiler.m_paintMask[index] = color;
+            }
+        }
+
+        Finish(compiler, center, radius, paintOnly: heightCount == 0);
     }
 
     public static bool Send(TerrainComp compiler, ZPackage package)
@@ -117,15 +181,20 @@ internal static class TerrainRpc
             compiler.m_modifiedPaint[index] = true;
         }
 
-        // Same as TerrainComp.DoOperation. Bumping the operation count by one makes the other clients regrow the
-        // grass only around the last operation when they load the new data.
+        Finish(compiler, center, radius, paintOnly: heightCount == 0);
+    }
+
+    /// <summary>
+    /// Same as the end of TerrainComp.DoOperation. Bumping the operation count by one makes the other clients
+    /// regrow the grass only around the last operation when they load the new data.
+    /// </summary>
+    private static void Finish(TerrainComp compiler, Vector3 center, float radius, bool paintOnly)
+    {
         compiler.m_operations++;
         compiler.m_lastOpPoint = center;
         compiler.m_lastOpRadius = radius;
-
-        bool paintOnly = heightCount == 0;
         compiler.Save(paintOnly);
-        map.Poke(1, paintOnly);
+        compiler.m_hmap.Poke(1, paintOnly);
         if (ClutterSystem.instance != null)
         {
             ClutterSystem.instance.ResetGrass(center, radius);

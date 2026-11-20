@@ -51,5 +51,12 @@
   "betterhoe_piece_ramp_description": "Click where the ramp starts, then where it ends, to build a smooth slope between them.",
   "betterhoe_readout_ramp_start_height": "Start height $1 m",
   "betterhoe_readout_ramp_end_height": "End height $1 m",
-  "betterhoe_readout_locked": "(locked)"
+  "betterhoe_readout_locked": "(locked)",
+  "betterhoe_hint_undo": "Undo",
+  "betterhoe_hint_redo": "Redo",
+  "betterhoe_undone": "Undid $1",
+  "betterhoe_redone": "Redid $1",
+  "betterhoe_undo_nothing": "Nothing to undo",
+  "betterhoe_redo_nothing": "Nothing to redo",
+  "betterhoe_undo_too_far": "That ground isn't loaded; move closer to undo or redo it"
 }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 
+using BetterHoe.History;
 using BetterHoe.Terrain;
 
 using TMPro;
@@ -21,6 +22,12 @@ internal static class HoeKeyHints
     private const string ContainerName = "BetterHoe_KeyHints";
     private const string ScrollIcon = "@scroll";
 
+    /// <summary>
+    /// In a hint's keys, the configured undo and redo shortcuts, shown as their keys.
+    /// </summary>
+    private const string UndoKey = "@undo";
+    private const string RedoKey = "@redo";
+
     private const float LabelFontSize = 16f;
     private const float IconHeight = 32f;
     private const float IconScale = 1.8f;
@@ -32,7 +39,7 @@ internal static class HoeKeyHints
     /// </summary>
     private const float StackLift = 12f;
 
-    private enum Show { Area = 0, Length = 1, Step = 2, Blend = 3, GridToggle = 4 }
+    private enum Show { Area = 0, Length = 1, Step = 2, Blend = 3, GridToggle = 4, Undo = 5, Redo = 6 }
 
     private sealed class Hint
     {
@@ -44,6 +51,8 @@ internal static class HoeKeyHints
 
     private static readonly List<Hint> Hints =
     [
+        new Hint { Label = "$betterhoe_hint_undo", Keys = [UndoKey], Show = Show.Undo },
+        new Hint { Label = "$betterhoe_hint_redo", Keys = [RedoKey], Show = Show.Redo },
         new Hint { Label = "$betterhoe_hint_width", Keys = ["Left Ctrl", ScrollIcon], Show = Show.Area },
         new Hint { Label = "$betterhoe_hint_length", Keys = ["Left Shift", ScrollIcon], Show = Show.Length },
         new Hint { Label = "$betterhoe_hint_step", Keys = ["Left Alt", ScrollIcon], Show = Show.Step },
@@ -104,6 +113,8 @@ internal static class HoeKeyHints
                 Show.Length => areaTool != null && areaTool.Shape != ShapeMode.Ramp,
                 Show.Step => areaTool != null && areaTool.Shape is ShapeMode.Raise or ShapeMode.Lower,
                 Show.Blend => areaTool?.Shape == ShapeMode.Ramp,
+                Show.Undo => UndoHistory.CanUndo,
+                Show.Redo => UndoHistory.CanRedo,
                 _ => AreaTool.GridToggleApplies(player),
             };
 
@@ -280,6 +291,7 @@ internal static class HoeKeyHints
             }
 
             _ = AddText(labelTemplate, item.transform, Localization.instance.Localize(hint.Label));
+            hint.Keys = ExpandShortcuts(hint.Keys);
             for (int i = 0; i < hint.Keys.Length; i++)
             {
                 if (i > 0)
@@ -347,6 +359,46 @@ internal static class HoeKeyHints
         layout.minHeight = layout.preferredHeight = IconHeight;
         layout.flexibleWidth = layout.flexibleHeight = 0f;
         icon.transform.localScale = new Vector3(IconScale, IconScale, 1f);
+    }
+
+    /// <summary>
+    /// The undo and redo shortcuts as their modifier keys and main key, named as the vanilla hints name them.
+    /// </summary>
+    private static string[] ExpandShortcuts(string[] keys)
+    {
+        List<string> expanded = [];
+        foreach (string key in keys)
+        {
+            if (key is not (UndoKey or RedoKey))
+            {
+                expanded.Add(key);
+                continue;
+            }
+
+            BepInEx.Configuration.KeyboardShortcut shortcut = key == UndoKey ? UndoHistory.UndoKey : UndoHistory.RedoKey;
+            foreach (KeyCode modifier in shortcut.Modifiers)
+            {
+                expanded.Add(KeyName(modifier));
+            }
+
+            expanded.Add(KeyName(shortcut.MainKey));
+        }
+
+        return [.. expanded];
+    }
+
+    private static string KeyName(KeyCode key)
+    {
+        return key switch
+        {
+            KeyCode.LeftControl => "Left Ctrl",
+            KeyCode.RightControl => "Right Ctrl",
+            KeyCode.LeftShift => "Left Shift",
+            KeyCode.RightShift => "Right Shift",
+            KeyCode.LeftAlt => "Left Alt",
+            KeyCode.RightAlt => "Right Alt",
+            _ => key.ToString(),
+        };
     }
 
     /// <summary>

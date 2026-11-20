@@ -15,6 +15,7 @@ Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact
 - **Paint**: Pathen, Paved road and the new Reset paint tool paint exactly the area. Reset paint removes paths and paving so the grass grows back.
 - **Costs**: Shaping the ground is free and painting costs what vanilla charges, with no workbench or stonecutter needed.
 - **Preview**: See the area's outline and the surface it will have before you click, with its size and height under the crosshair.
+- **Undo and redo**: Undo terrain changes with `Ctrl+Z` and redo them with `Ctrl+Y`.
 - **Key hints**: The hints at the bottom of the screen say what each key does with the hoe, and the ones that do nothing with a hoe are left out.
 
 ## Terrain Grid
@@ -49,6 +50,18 @@ Select **Ramp** in the hoe menu, click where the ramp starts, then click where i
 - Each end takes the height of the ground at that point, or the top of a floor piece you aim at, or the locked height.
 - The ramp can run in any direction. On the 1 m terrain grid a diagonal ramp's sides are slightly stepped; the blend smooths them.
 - Setting the start is free; building the ramp costs one use.
+
+## Undo and Redo
+
+| Key      | Action                                   |
+| -------- | ---------------------------------------- |
+| `Ctrl+Z` | Undo the last terrain change.            |
+| `Ctrl+Y` | Redo the last terrain change you undid.  |
+
+- This covers every change made on the grid: levelling, raising, lowering, resetting, painting and ramps. Changes made with the grid off use vanilla's brush and can't be undone.
+- Undoing puts the ground back exactly as it was, and redoing puts the change back exactly. Neither costs anything, and materials aren't refunded.
+- If the ground is too far away to be loaded, or is now behind someone else's ward, nothing happens.
+- The history holds 50 changes by default and lasts until you log out. Making a new change clears what you could redo.
 
 ## Equip Hoe
 
