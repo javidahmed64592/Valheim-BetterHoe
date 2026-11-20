@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 
+using BetterHoe.History;
+
 using UnityEngine;
 
 namespace BetterHoe.Terrain;
@@ -133,38 +135,50 @@ internal sealed class TerrainEdits
 
     /// <summary>
     /// Sends the edits. `center` and `radius` cover every point; the terrain uses them to regrow the grass.
-    /// Returns false when no point was on loaded terrain.
+    /// `before` gets the data the edits are about to change, for undoing them. Returns false when no point was
+    /// on loaded terrain.
     /// </summary>
-    public bool Send(Vector3 center, float radius)
+    public bool Send(Vector3 center, float radius, List<TerrainSnapshot> before)
     {
         TempMaps.Clear();
         Heightmap.FindHeightmap(center, radius, TempMaps);
-        bool sent = false;
+        before.Clear();
 
+        // Pack and capture everything first: an RPC to ourselves runs straight away and would change the data.
+        List<(TerrainComp compiler, ZPackage package)> sends = [];
         foreach (Heightmap map in TempMaps)
         {
-            ZPackage package = Pack(map, center, radius);
+            ZPackage package = Pack(map, center, radius, out List<int> heightIndices, out List<int> paintIndices);
             if (package == null)
             {
                 continue;
             }
 
             TerrainComp compiler = map.GetAndCreateTerrainCompiler();
-            if (compiler != null && TerrainRpc.Send(compiler, package))
+            if (compiler == null || !compiler.m_initialized)
             {
-                sent = true;
+                continue;
             }
+
+            before.Add(TerrainSnapshot.Capture(compiler, heightIndices, paintIndices));
+            sends.Add((compiler, package));
+        }
+
+        bool sent = false;
+        foreach ((TerrainComp compiler, ZPackage package) in sends)
+        {
+            sent |= TerrainRpc.Send(compiler, package);
         }
 
         return sent;
     }
 
-    private ZPackage Pack(Heightmap map, Vector3 center, float radius)
+    private ZPackage Pack(Heightmap map, Vector3 center, float radius, out List<int> heightIndices, out List<int> paintIndices)
     {
         int width = map.m_width;
         int pitch = width + 1;
 
-        List<int> heightIndices = [];
+        heightIndices = [];
         List<HeightEdit> heights = [];
         foreach (HeightEdit edit in _heights)
         {
@@ -182,7 +196,7 @@ internal sealed class TerrainEdits
         float texel = size / pitch;
         Vector3 corner = map.transform.position - new Vector3(size / 2f, 0f, size / 2f);
 
-        List<int> paintIndices = [];
+        paintIndices = [];
         List<Color> paints = [];
         foreach (PaintEdit edit in _paints)
         {

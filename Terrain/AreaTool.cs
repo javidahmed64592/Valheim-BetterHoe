@@ -6,6 +6,7 @@ using BepInEx.Configuration;
 
 using BetterHoe.Core;
 using BetterHoe.Grid;
+using BetterHoe.History;
 using BetterHoe.Pieces;
 using BetterHoe.UI;
 
@@ -249,6 +250,7 @@ internal static class AreaTool
         {
             _lockedHeight = null;
             _rampStart = null;
+            UndoHistory.Reset();
             Hide();
             return;
         }
@@ -259,6 +261,8 @@ internal static class AreaTool
             Hide();
             return;
         }
+
+        UndoHistory.UpdateKeys(player, CheckAccess);
 
         HoeTool tool = ToolFor(piece, out bool own);
         if (tool != HoeTool.Ramp)
@@ -437,11 +441,14 @@ internal static class AreaTool
         }
 
         edits.Paint(ramp.Corners(0f), HoeTool.Ramp.PaintColor);
-        if (!edits.Send(ramp.Center, ramp.Radius))
+        List<TerrainSnapshot> before = [];
+        if (!edits.Send(ramp.Center, ramp.Radius, before))
         {
             player.Message(MessageHud.MessageType.Center, "$msg_invalidplacement");
             return true;
         }
+
+        UndoHistory.Record(HoeTool.Ramp.NameToken, ramp.Center, ramp.Radius, points, before);
 
         PlayEffects(player, piece, ramp.Center);
         _rampStart = null;
@@ -566,7 +573,8 @@ internal static class AreaTool
         }
 
         Area area = CurrentArea();
-        if (!CheckAccess(player, AreaVertices(area)))
+        List<(int x, int z)> vertices = AreaVertices(area);
+        if (!CheckAccess(player, vertices))
         {
             return true;
         }
@@ -574,11 +582,14 @@ internal static class AreaTool
         float value = ToolValue(tool);
         TerrainEdits edits = BuildEdits(tool, area, value);
         Vector3 center = new(area.CenterX, _aimPoint.y, area.CenterZ);
-        if (!edits.Send(center, area.Radius + 1f))
+        List<TerrainSnapshot> before = [];
+        if (!edits.Send(center, area.Radius + 1f, before))
         {
             player.Message(MessageHud.MessageType.Center, "$msg_invalidplacement");
             return true;
         }
+
+        UndoHistory.Record(tool.NameToken, center, area.Radius + 1f, vertices, before);
 
         PlayEffects(player, piece, center);
         placed = true;

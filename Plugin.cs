@@ -3,6 +3,7 @@ using BepInEx;
 using BetterHoe.Core;
 using BetterHoe.Equip;
 using BetterHoe.Grid;
+using BetterHoe.History;
 using BetterHoe.Pieces;
 using BetterHoe.Terrain;
 
@@ -27,6 +28,7 @@ public class BetterHoePlugin : BaseUnityPlugin
     {
         PhantomHoe.BindConfig(Config);
         AreaTool.BindConfig(Config);
+        UndoHistory.BindConfig(Config);
         GridOverlay.BindConfig(Config);
         Translations.Load();
         HoePieces.Register();

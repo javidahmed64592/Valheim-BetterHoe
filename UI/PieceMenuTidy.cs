@@ -1,63 +1,43 @@
-using System.Collections.Generic;
-
 using UnityEngine;
 
 namespace BetterHoe.UI;
 
 /// <summary>
-/// The piece menu always shows the Q / E tab keys and the tab bar's border, even for a piece table without
-/// tabs like the hoe's, where there is nothing to switch between. This hides them while such a table is open
-/// and puts them back for the others.
+/// The piece menu shows the category bar and the Q / E keys for switching tabs even when there is only one tab,
+/// as with the hoe (Jotunn gives every piece table the categories its pieces use, so the hoe gets just "Misc").
+/// While a menu with fewer than two tabs is open, this hides both. Vanilla turns the category bar back on every
+/// frame, so it is hidden every frame too; the Q / E keys are put back when a menu with tabs is opened.
 /// </summary>
 internal static class PieceMenuTidy
 {
-    private static readonly string[] Names = ["InputHelp", "TabBorder"];
-
-    private static readonly List<GameObject> Objects = [];
-    private static Hud _hud;
-    private static bool _hidden;
+    private static GameObject _keys;
+    private static bool _keysHidden;
 
     internal static void AfterUpdateBuild(Hud hud, Player player)
     {
-        if (player == null || !Hud.IsPieceSelectionVisible())
+        if (player == null || !Hud.IsPieceSelectionVisible() || hud.m_pieceSelectionWindow == null)
         {
             return;
         }
 
-        if (_hud != hud)
+        if (_keys == null)
         {
-            Find(hud);
+            _keys = hud.m_pieceSelectionWindow.transform.Find("InputHelp")?.gameObject;
+            _keysHidden = false;
         }
 
         PieceTable table = player.m_buildPieces;
-        bool hide = table != null && table.m_categories.Count == 0;
-        if (hide == _hidden)
+        bool hide = table != null && table.m_categories.Count < 2;
+
+        if (hide && hud.m_pieceCategoryRoot != null && hud.m_pieceCategoryRoot.activeSelf)
         {
-            return;
+            hud.m_pieceCategoryRoot.SetActive(false);
         }
 
-        foreach (GameObject item in Objects)
+        if (_keys != null && hide != _keysHidden)
         {
-            if (item != null)
-            {
-                item.SetActive(!hide);
-            }
-        }
-
-        _hidden = hide;
-    }
-
-    private static void Find(Hud hud)
-    {
-        _hud = hud;
-        _hidden = false;
-        Objects.Clear();
-        foreach (Transform child in hud.m_buildHud.GetComponentsInChildren<Transform>(includeInactive: true))
-        {
-            if (System.Array.IndexOf(Names, child.name) >= 0 && child.gameObject.activeSelf)
-            {
-                Objects.Add(child.gameObject);
-            }
+            _keys.SetActive(!hide);
+            _keysHidden = hide;
         }
     }
 }
