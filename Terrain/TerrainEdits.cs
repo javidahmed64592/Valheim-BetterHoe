@@ -26,10 +26,12 @@ internal enum HeightMode : byte
 }
 
 /// <summary>
-/// A batch of per-vertex terrain edits in world coordinates. Heights live on the heightmap's vertices (whole
-/// metres) and paint on its mask texels (the centres of the 1 m cells between them). <see cref="Send"/> finds
-/// every heightmap each point falls in, so points on a border between two heightmaps change both, and sends
-/// each heightmap's share to the owner of its terrain compiler (see <see cref="TerrainRpc"/>).
+/// A batch of terrain edits in world coordinates. Heights live on the heightmap's vertices (whole metres).
+/// Paint lives in a mask texture of (width + 1) texels that the terrain mesh stretches over its width, so a
+/// texel's centre drifts from the 1 m grid by up to a whole metre across a heightmap; paint is therefore given
+/// as rectangles, and every texel drawn with its centre inside one is painted. <see cref="Send"/> finds every
+/// heightmap the edits fall in, so edits on a border between two heightmaps change both, and sends each
+/// heightmap's share to the owner of its terrain compiler (see <see cref="TerrainRpc"/>).
 /// </summary>
 internal sealed class TerrainEdits
 {
@@ -41,9 +43,12 @@ internal sealed class TerrainEdits
         public readonly float Weight = weight;
     }
 
-    private readonly struct PaintEdit(Vector3 point, Color color)
+    private readonly struct PaintEdit(Rect rect, Color color)
     {
-        public readonly Vector3 Point = point;
+        /// <summary>
+        /// World x / z bounds.
+        /// </summary>
+        public readonly Rect Rect = rect;
         public readonly Color Color = color;
     }
 
@@ -70,11 +75,11 @@ internal sealed class TerrainEdits
     }
 
     /// <summary>
-    /// Paints the 1 m cell whose centre is (x, z).
+    /// Paints the world rectangle from (minX, minZ) to (maxX, maxZ).
     /// </summary>
-    public void Paint(float x, float z, Color color)
+    public void Paint(float minX, float minZ, float maxX, float maxZ, Color color)
     {
-        _paints.Add(new PaintEdit(new Vector3(x, 0f, z), color));
+        _paints.Add(new PaintEdit(Rect.MinMaxRect(minX, minZ, maxX, maxZ), color));
     }
 
     /// <summary>
@@ -122,18 +127,25 @@ internal sealed class TerrainEdits
             }
         }
 
+        // The mesh's UVs run from 0 to 1 across its width, and the mask has `pitch` texels, so texel t is drawn
+        // centred at (t + 0.5) * texel from the heightmap's south-west corner.
+        float size = width * map.m_scale;
+        float texel = size / pitch;
+        Vector3 corner = map.transform.position - new Vector3(size / 2f, 0f, size / 2f);
+
         List<int> paintIndices = [];
-        List<PaintEdit> paints = [];
-        // Like vanilla's TerrainOp m_halfOffset: a paint texel covers the cell whose lower corner is its vertex,
-        // so look the texel up half a cell back from the cell's centre.
-        Vector3 halfCell = new(0.5f, 0f, 0.5f);
+        List<Color> paints = [];
         foreach (PaintEdit edit in _paints)
         {
-            map.WorldToVertexMask(edit.Point - halfCell, out int x, out int y);
-            if (x >= 0 && y >= 0 && x <= width && y <= width)
+            TexelRange(edit.Rect.xMin - corner.x, edit.Rect.xMax - corner.x, texel, width, out int x0, out int x1);
+            TexelRange(edit.Rect.yMin - corner.z, edit.Rect.yMax - corner.z, texel, width, out int y0, out int y1);
+            for (int y = y0; y <= y1; y++)
             {
-                paintIndices.Add((y * pitch) + x);
-                paints.Add(edit);
+                for (int x = x0; x <= x1; x++)
+                {
+                    paintIndices.Add((y * pitch) + x);
+                    paints.Add(edit.Color);
+                }
             }
         }
 
@@ -160,11 +172,21 @@ internal sealed class TerrainEdits
         for (int i = 0; i < paints.Count; i++)
         {
             package.Write(paintIndices[i]);
-            package.Write(paints[i].Color.r);
-            package.Write(paints[i].Color.g);
-            package.Write(paints[i].Color.b);
+            package.Write(paints[i].r);
+            package.Write(paints[i].g);
+            package.Write(paints[i].b);
         }
 
         return package;
+    }
+
+    /// <summary>
+    /// The texels whose drawn centres lie in [from, to), measured from the heightmap's corner, clamped to the
+    /// mask. The range is empty (first &gt; last) when none do.
+    /// </summary>
+    private static void TexelRange(float from, float to, float texel, int width, out int first, out int last)
+    {
+        first = Mathf.Max(0, Mathf.CeilToInt((from / texel) - 0.5f - 0.0001f));
+        last = Mathf.Min(width, Mathf.CeilToInt((to / texel) - 0.5f - 0.0001f) - 1);
     }
 }

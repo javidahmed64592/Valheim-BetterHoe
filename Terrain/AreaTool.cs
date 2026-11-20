@@ -404,15 +404,7 @@ internal static class AreaTool
             return edits;
         }
 
-        Color paint = tool.PaintColor;
-        for (int x = area.MinX; x < area.MaxX; x++)
-        {
-            for (int z = area.MinZ; z < area.MaxZ; z++)
-            {
-                edits.Paint(x + 0.5f, z + 0.5f, paint);
-            }
-        }
-
+        edits.Paint(area.MinX, area.MinZ, area.MaxX, area.MaxZ, tool.PaintColor);
         return edits;
     }
 
