@@ -1,6 +1,6 @@
 {
   "name": "BetterHoe",
-  "description": "Shape terrain on a grid with the hoe: level, raise, lower and paint exact rectangles of ground.",
+  "description": "Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact areas, build smooth ramps, and take out a hoe with one key.",
   "version_number": "0.1.0",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2360",
