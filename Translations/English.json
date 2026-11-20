@@ -58,5 +58,6 @@
   "betterhoe_redone": "Redid $1",
   "betterhoe_undo_nothing": "Nothing to undo",
   "betterhoe_redo_nothing": "Nothing to redo",
-  "betterhoe_undo_too_far": "That ground isn't loaded; move closer to undo or redo it"
+  "betterhoe_undo_too_far": "That ground isn't loaded; move closer to undo or redo it",
+  "betterhoe_menu_title": "Terrain Tools"
 }
