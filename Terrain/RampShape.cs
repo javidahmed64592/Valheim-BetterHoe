@@ -80,7 +80,8 @@ internal readonly struct RampShape(Vector3 start, Vector3 end, float width, floa
     {
         Project(x, z, out float t, out float distance);
         height = HeightAt(Mathf.Clamp01(t));
-        if (t is < (-0.001f) or > 1.001f)
+        // Past either end (t outside 0..1, with a little tolerance).
+        if (Mathf.Abs(t - 0.5f) > 0.501f)
         {
             return 0f;
         }
