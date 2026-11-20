@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Press `N` to take out a hoe without having one in your inventory, and again to put it away, like BetterHammer's `B` for the hammer. It never wears out, and the key can be rebound in the controls menu.
 - The hoe works on a grid. A grid like BetterHammer's build grid is drawn on the ground at the terrain's own 1 m spacing, and the hoe changes exactly the rectangle marked on it instead of a round patch.
 - Change the area's width (west to east) with `Ctrl+Scroll` and its length (south to north) with `Shift+Scroll`.
 - Level ground flattens the whole area to the height you aim at. Middle-click locks that height, so neighbouring areas can be levelled to exactly the same height.

@@ -4,8 +4,9 @@
 
 # BetterHoe
 
-Shape terrain on a grid with the hoe: level, raise, lower and paint exact rectangles of ground.
+Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact areas, build smooth ramps, and take out a hoe with one key.
 
+- **Equip a hoe**: Press `N` to take out a hoe without having one in your inventory, and again to put it away.
 - **Terrain grid**: A grid is drawn on the ground at the terrain's 1 m spacing, matching [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/)'s build grid. The hoe changes exactly the rectangle marked on it.
 - **Level ground**: Flatten the whole area to the height you aim at, or lock a height to level several areas to the same height.
 - **Ramp**: Click a start and an end to build a smooth, constant slope between them, with sides that blend into the ground.
@@ -49,6 +50,10 @@ Select **Ramp** in the hoe menu, click where the ramp starts, then click where i
 - The ramp can run in any direction. On the 1 m terrain grid a diagonal ramp's sides are slightly stepped; the blend smooths them.
 - Setting the start is free; building the ramp costs one use.
 
+## Equip Hoe
+
+Press `N` to take out a hoe, even if you don't have one in your inventory, and press it again to put it away. It never wears out. Rebind the key in the game's controls menu.
+
 ## Configuration
 
 Settings are in the BepInEx config file `javidahmed64592.betterhoe.cfg`.
@@ -58,6 +63,7 @@ Settings marked "(Synced with server)" use the server's values.
 
 - Every player and the server need the mod, because the terrain changes are sent to whoever looks after that piece of ground.
 - Mods that change the hoe's tools or how terrain is edited may clash with the grid.
+- Works alongside [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/): `B` takes out its hammer and `N` this mod's hoe.
 - This mod has not been tested with a gamepad, only with keyboard and mouse.
 
 ## Uninstalling

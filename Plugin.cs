@@ -1,6 +1,7 @@
 using BepInEx;
 
 using BetterHoe.Core;
+using BetterHoe.Equip;
 using BetterHoe.Grid;
 using BetterHoe.Pieces;
 using BetterHoe.Terrain;
@@ -24,6 +25,7 @@ public class BetterHoePlugin : BaseUnityPlugin
 
     private void Awake()
     {
+        PhantomHoe.BindConfig(Config);
         AreaTool.BindConfig(Config);
         GridOverlay.BindConfig(Config);
         Translations.Load();
@@ -42,6 +44,8 @@ public class BetterHoePlugin : BaseUnityPlugin
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "Unity message")]
     private void Update()
     {
-        AreaTool.Update(Player.m_localPlayer);
+        Player player = Player.m_localPlayer;
+        PhantomHoe.Update(player);
+        AreaTool.Update(player);
     }
 }
