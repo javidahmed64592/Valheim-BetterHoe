@@ -15,6 +15,6 @@
 - Shaping the ground is free: Raise ground no longer costs stone. Painting costs what vanilla charges (one stone for Paved road). No hoe tool needs a workbench or stonecutter nearby.
 - Each use costs the same stamina and durability as one vanilla use, whatever the area's size.
 - The key hints at the bottom of the screen fit the hoe: they say what each key does with the selected tool ("Level area", "Hoe menu", "Lock height"), list the area controls, and leave out the ones that do nothing with a hoe (remove, copy, snapping, and rotating terrain tools).
-- The hoe menu no longer shows the Q and E tab keys or the tab bar, as it has only one tab.
+- The hoe menu no longer shows the Q and E tab keys or the line under the tabs, as it has no tabs. The cultivator menu gets the same tidy-up.
 - Undo your last terrain change with `Ctrl+Z` and redo it with `Ctrl+Y` while the hoe is out. This covers every change made on the grid, including ramps. Undo and redo are free and exact, and the history holds 50 changes until you log out.
 - Turn the grid off for the vanilla tools with `Ctrl+Right-Click` to use vanilla's round brushes again.
