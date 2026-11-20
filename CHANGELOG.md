@@ -10,4 +10,6 @@
 - A preview shows the result before you click: the outline of the area on the ground, and the surface it will have.
 - Text under the crosshair shows the tool, the area size and the height or step, and warns when ground would stop at vanilla's 8 m limit.
 - Each use costs the same stamina, durability and materials as one vanilla use, whatever the area's size.
+- The key hints at the bottom of the screen fit the hoe: they say what each key does with the selected tool ("Level area", "Hoe menu", "Lock height"), list the area controls, and leave out the ones that do nothing with a hoe (remove, copy, snapping, and rotating terrain tools).
+- The hoe menu no longer shows the Q and E tab keys, as it has no tabs.
 - Turn the grid off for the vanilla tools with `Ctrl+Right-Click` to use vanilla's round brushes again.

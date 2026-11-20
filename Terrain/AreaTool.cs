@@ -169,6 +169,33 @@ internal static class AreaTool
         return player != null && player == Player.m_localPlayer && ToolFor(SelectedHoePiece(player), out _) != null;
     }
 
+    /// <summary>
+    /// The piece the local player has selected on the hoe, or null when not using a hoe.
+    /// </summary>
+    internal static Piece SelectedPiece(Player player)
+    {
+        return player != null && player == Player.m_localPlayer ? SelectedHoePiece(player) : null;
+    }
+
+    /// <summary>
+    /// The terrain tool for the selected hoe piece, whether or not the grid is on, or null.
+    /// </summary>
+    internal static HoeTool SelectedTerrainTool(Player player)
+    {
+        return ToolFor(SelectedPiece(player), out _);
+    }
+
+    /// <summary>
+    /// True when the selected piece is one of the vanilla terrain tools, which Ctrl+Right-Click switches between
+    /// the area and vanilla's brush.
+    /// </summary>
+    internal static bool GridToggleApplies(Player player)
+    {
+        return ToolFor(SelectedPiece(player), out bool own) != null && !own;
+    }
+
+    internal static bool HeightLocked => _lockedHeight.HasValue;
+
     internal static void SetAim(Vector3 point)
     {
         _aimFrame = Time.frameCount;

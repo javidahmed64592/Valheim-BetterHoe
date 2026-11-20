@@ -11,6 +11,7 @@ Shape terrain on a grid with the hoe: level, raise, lower and paint exact rectan
 - **Raise and lower ground**: Lift or sink the whole area by a fixed step. Lower ground is a new hoe tool.
 - **Paint**: Pathen, Paved road and the new Reset ground tool paint exactly the area. Reset ground removes paths and paving so the grass grows back.
 - **Preview**: See the area's outline and the surface it will have before you click, with its size and height under the crosshair.
+- **Key hints**: The hints at the bottom of the screen say what each key does with the hoe, and the ones that do nothing with a hoe are left out.
 
 ## Terrain Grid
 

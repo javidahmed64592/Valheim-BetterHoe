@@ -13,22 +13,28 @@ internal enum ShapeMode { None = 0, Flatten = 1, Raise = 2, Lower = 3 }
 /// </summary>
 internal sealed class HoeTool
 {
-    public static readonly HoeTool Flatten = new(ShapeMode.Flatten, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_flatten");
-    public static readonly HoeTool Raise = new(ShapeMode.Raise, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_raise");
-    public static readonly HoeTool Lower = new(ShapeMode.Lower, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_lower");
-    public static readonly HoeTool PaintDirt = new(ShapeMode.None, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_path");
-    public static readonly HoeTool PaintPaved = new(ShapeMode.None, TerrainModifier.PaintType.Paved, "$betterhoe_tool_paved");
-    public static readonly HoeTool PaintReset = new(ShapeMode.None, TerrainModifier.PaintType.Reset, "$betterhoe_tool_reset");
+    public static readonly HoeTool Flatten = new(ShapeMode.Flatten, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_flatten", "$betterhoe_hint_flatten");
+    public static readonly HoeTool Raise = new(ShapeMode.Raise, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_raise", "$betterhoe_hint_raise");
+    public static readonly HoeTool Lower = new(ShapeMode.Lower, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_lower", "$betterhoe_hint_lower");
+    public static readonly HoeTool PaintDirt = new(ShapeMode.None, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_path", "$betterhoe_hint_path");
+    public static readonly HoeTool PaintPaved = new(ShapeMode.None, TerrainModifier.PaintType.Paved, "$betterhoe_tool_paved", "$betterhoe_hint_paved");
+    public static readonly HoeTool PaintReset = new(ShapeMode.None, TerrainModifier.PaintType.Reset, "$betterhoe_tool_reset", "$betterhoe_hint_reset");
 
     public ShapeMode Shape { get; }
     public TerrainModifier.PaintType Paint { get; }
     public string NameToken { get; }
 
-    private HoeTool(ShapeMode shape, TerrainModifier.PaintType paint, string nameToken)
+    /// <summary>
+    /// What the place key does with this tool, for the key hints.
+    /// </summary>
+    public string ActionToken { get; }
+
+    private HoeTool(ShapeMode shape, TerrainModifier.PaintType paint, string nameToken, string actionToken)
     {
         Shape = shape;
         Paint = paint;
         NameToken = nameToken;
+        ActionToken = actionToken;
     }
 
     /// <summary>
