@@ -35,7 +35,7 @@ While one of the hoe's terrain tools is selected, the area it changes is outline
 
 ## Ramp
 
-Select **Ramp** in the hoe menu, click where the ramp starts, then click where it ends. Until the second click, a preview shows the ramp's surface in blue and its outline on the ground in gold, and the text under the crosshair shows its length, rise and slope.
+Select **Ramp** in the hoe menu, click where the ramp starts, then click where it ends. Until the second click, a preview shows the ramp's surface in blue, its outline on the ground in gold, and the edge blend in violet, fading out towards the ground. The text under the crosshair shows the ramp's length, end height, rise and slope.
 
 | Key             | Action                                                              |
 | --------------- | ------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ Select **Ramp** in the hoe menu, click where the ramp starts, then click where i
 | `Right-Click`   | Cancel the start.                                                   |
 | `Ctrl+Scroll`   | Change the ramp's width.                                            |
 | `Alt+Scroll`    | Change how far the sides blend into the ground around the ramp.     |
-| `Middle-Click`  | Lock or unlock the height you are aiming at, for either end.        |
+| `Middle-Click`  | Lock or unlock the height you are aiming at. Each end uses the lock if it's on when you click. |
 
 - Each end takes the height of the ground at that point, or the top of a floor piece you aim at, or the locked height.
 - The ramp can run in any direction. On the 1 m terrain grid a diagonal ramp's sides are slightly stepped; the blend smooths them.

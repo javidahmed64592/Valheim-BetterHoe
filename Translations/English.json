@@ -44,9 +44,12 @@
   "betterhoe_ramp_started": "Ramp start set. Click again where the ramp should end.",
   "betterhoe_ramp_cancelled": "Ramp cancelled",
   "betterhoe_ramp_too_short": "The ramp must be at least 1 m long",
-  "betterhoe_readout_ramp_start": "Ramp  $1 m wide\nStart height $2 m",
-  "betterhoe_readout_ramp": "Ramp  $1 m wide, $2 m long",
+  "betterhoe_readout_ramp_start": "Ramp  $1 m wide, $2 m edge blend",
+  "betterhoe_readout_ramp": "Ramp  $1 m wide, $2 m long, $3 m edge blend",
   "betterhoe_readout_ramp_slope": "Rise $1 m, slope $2 degrees",
   "betterhoe_piece_ramp": "Ramp",
-  "betterhoe_piece_ramp_description": "Click where the ramp starts, then where it ends, to build a smooth slope between them."
+  "betterhoe_piece_ramp_description": "Click where the ramp starts, then where it ends, to build a smooth slope between them.",
+  "betterhoe_readout_ramp_start_height": "Start height $1 m",
+  "betterhoe_readout_ramp_end_height": "End height $1 m",
+  "betterhoe_readout_locked": "(locked)"
 }

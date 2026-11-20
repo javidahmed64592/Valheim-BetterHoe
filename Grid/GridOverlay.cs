@@ -33,6 +33,7 @@ internal sealed class GridOverlay
     private static ConfigEntry<Color> _areaColor;
     private static ConfigEntry<Color> _previewColor;
     private static ConfigEntry<float> _fillAlpha;
+    private static ConfigEntry<Color> _blendColor;
 
     private static int Radius => _radius.Value;
     private static float FadeStart => Mathf.Min(_fadeStart.Value, Radius - 0.01f);
@@ -94,6 +95,8 @@ internal sealed class GridOverlay
         _fillAlpha = config.Bind(section, "Preview Fill Alpha", 0.18f,
             new ConfigDescription("Opacity of the tinted surface showing the result inside the area.",
                 new AcceptableValueRange<float>(0f, 1f)));
+        _blendColor = config.Bind(section, "Ramp Blend Color", new Color(0.8f, 0.45f, 1f, 0.9f),
+            "Colour (including alpha) of a ramp's edge blend: the band beside the ramp where the ground eases into it.");
     }
 
     private readonly Layer _grid = new("BetterHoe_Grid");
@@ -392,14 +395,54 @@ internal sealed class GridOverlay
 
         if (ramp.Blend > 0f)
         {
-            Color faint = preview;
-            faint.a *= 0.45f;
+            Color blend = _blendColor.Value;
+            AddBlendBand(fill, ramp, 1f, lift, blend, fallbackHeight);
+            AddBlendBand(fill, ramp, -1f, lift, blend, fallbackHeight);
             Vector3[] outer = ramp.Corners(ramp.Blend);
-            AddGroundLine(lines, outer[3], outer[0], lift, width * 0.6f, faint, fallbackHeight);
-            AddGroundLine(lines, outer[1], outer[2], lift, width * 0.6f, faint, fallbackHeight);
+            AddGroundLine(lines, outer[3], outer[0], lift, width * 0.7f, blend, fallbackHeight);
+            AddGroundLine(lines, outer[1], outer[2], lift, width * 0.7f, blend, fallbackHeight);
         }
 
         _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// The blend band on one side of the ramp (`side` +1 = left, -1 = right), drawn at the heights it will have:
+    /// eased from the ramp's edge down or up to the ground. It fades out towards the ground, as the blend does.
+    /// </summary>
+    private static void AddBlendBand(MeshBuilder mesh, RampShape ramp, float side, float lift, Color color, float fallbackHeight)
+    {
+        const int across = 4;
+        int along = Mathf.Max(1, Mathf.CeilToInt(ramp.Length));
+        float half = ramp.Width / 2f;
+        float maxAlpha = Mathf.Clamp01(_fillAlpha.Value * 2f);
+        Vector3[,] points = new Vector3[along + 1, across + 1];
+        Color[,] colors = new Color[along + 1, across + 1];
+
+        for (int i = 0; i <= along; i++)
+        {
+            float t = i / (float)along;
+            Vector3 centre = Vector3.Lerp(ramp.Start, ramp.End, t);
+            for (int j = 0; j <= across; j++)
+            {
+                float distance = half + (ramp.Blend * j / across);
+                Vector3 point = centre + (ramp.Across * side * distance);
+                float weight = ramp.WeightAt(point.x, point.z, out float height);
+                float ground = TerrainHeights.GroundAt(point.x, point.z, fallbackHeight);
+                point.y = Mathf.Lerp(ground, height, weight) + lift;
+                points[i, j] = point;
+                colors[i, j] = new Color(color.r, color.g, color.b, maxAlpha * weight);
+            }
+        }
+
+        for (int i = 0; i < along; i++)
+        {
+            for (int j = 0; j < across; j++)
+            {
+                mesh.AddQuad(points[i, j], points[i + 1, j], points[i + 1, j + 1], points[i, j + 1],
+                    colors[i, j], colors[i + 1, j], colors[i + 1, j + 1], colors[i, j + 1]);
+            }
+        }
     }
 
     /// <summary>
@@ -525,16 +568,20 @@ internal sealed class GridOverlay
 
         public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color)
         {
+            AddQuad(a, b, c, d, color, color, color, color);
+        }
+
+        public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color colorA, Color colorB, Color colorC, Color colorD)
+        {
             int start = Vertices.Count;
             Vertices.Add(a);
             Vertices.Add(b);
             Vertices.Add(c);
             Vertices.Add(d);
-            for (int k = 0; k < 4; k++)
-            {
-                Colors.Add(color);
-            }
-
+            Colors.Add(colorA);
+            Colors.Add(colorB);
+            Colors.Add(colorC);
+            Colors.Add(colorD);
             AddTriangles(start, start + 1, start + 2, start + 3);
         }
 

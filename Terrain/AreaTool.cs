@@ -326,14 +326,16 @@ internal static class AreaTool
             Vector3 point = RampPoint();
             Overlay.ShowRampStart(_aimPoint, point);
             Readout.Show(Localization.instance.Localize("$betterhoe_readout_ramp_start",
-                Width.ToString(CultureInfo.InvariantCulture), Metres(point.y)));
+                Width.ToString(CultureInfo.InvariantCulture), Metres(Blend))
+                + "\n" + PointHeightText("$betterhoe_readout_ramp_start_height", point.y));
             return;
         }
 
         RampShape ramp = CurrentRamp();
         Overlay.ShowRamp(_aimPoint, ramp);
         string text = Localization.instance.Localize("$betterhoe_readout_ramp",
-            Width.ToString(CultureInfo.InvariantCulture), Metres(ramp.Length));
+            Width.ToString(CultureInfo.InvariantCulture), Metres(ramp.Length), Metres(Blend));
+        text += "\n" + PointHeightText("$betterhoe_readout_ramp_end_height", ramp.End.y);
         text += "\n" + Localization.instance.Localize("$betterhoe_readout_ramp_slope",
             (ramp.Rise >= 0f ? "+" : "") + Metres(ramp.Rise), ramp.SlopeDegrees.ToString("0.#", CultureInfo.InvariantCulture));
         if (!ramp.IsValid)
@@ -346,6 +348,15 @@ internal static class AreaTool
         }
 
         Readout.Show(text);
+    }
+
+    /// <summary>
+    /// "Start height 31.2 m", with "(locked)" when the height lock sets it.
+    /// </summary>
+    private static string PointHeightText(string token, float height)
+    {
+        string text = Localization.instance.Localize(token, Metres(height));
+        return _lockedHeight.HasValue ? text + " " + Localization.instance.Localize("$betterhoe_readout_locked") : text;
     }
 
     private static RampShape _rampLimitKey;
