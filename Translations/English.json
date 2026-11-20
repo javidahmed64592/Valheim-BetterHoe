@@ -1,0 +1,21 @@
+{
+  "betterhoe_grid_on": "Terrain grid on",
+  "betterhoe_grid_off": "Terrain grid off",
+  "betterhoe_height_locked": "Height locked at $1 m",
+  "betterhoe_height_unlocked": "Height unlocked",
+  "betterhoe_tool_flatten": "Level",
+  "betterhoe_tool_raise": "Raise",
+  "betterhoe_tool_lower": "Lower",
+  "betterhoe_tool_path": "Path",
+  "betterhoe_tool_paved": "Paved road",
+  "betterhoe_tool_reset": "Reset ground",
+  "betterhoe_readout_area": "$1  $2 x $3 m",
+  "betterhoe_readout_height": "Height $1 m",
+  "betterhoe_readout_height_locked": "Height $1 m (locked)",
+  "betterhoe_readout_step": "Step $1 m",
+  "betterhoe_readout_limit": "Some ground will stop at the 8 m limit",
+  "betterhoe_piece_lower": "Lower ground",
+  "betterhoe_piece_lower_description": "Lowers the ground in the marked area.",
+  "betterhoe_piece_reset": "Reset ground",
+  "betterhoe_piece_reset_description": "Removes paths and paving in the marked area and lets the grass grow back."
+}

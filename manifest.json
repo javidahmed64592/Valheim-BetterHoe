@@ -1,0 +1,10 @@
+{
+  "name": "BetterHoe",
+  "description": "Shape terrain on a grid with the hoe: level, raise, lower and paint exact rectangles of ground.",
+  "version_number": "0.1.0",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2360",
+    "ValheimModding-Jotunn-2.30.2"
+  ],
+  "website_url": "https://github.com/javidahmed64592/Valheim-BetterHoe"
+}
