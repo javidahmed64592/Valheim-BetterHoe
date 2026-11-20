@@ -69,10 +69,10 @@ internal static class AreaTool
             "Use the area grid with the hoe's vanilla tools (Level ground, Raise ground, Pathen and Paved road). " +
             "Toggle it in game with Ctrl+Right-Click. BetterHoe's own tools always use it.");
         _width = config.Bind("Area", "Width", 4,
-            new ConfigDescription("Width in metres of the area, across your view. Change it in game with Ctrl+Scroll.",
+            new ConfigDescription("Width in metres of the area from west to east. Change it in game with Ctrl+Scroll.",
                 new AcceptableValueRange<int>(1, 64)));
         _length = config.Bind("Area", "Length", 4,
-            new ConfigDescription("Length in metres of the area, along your view. Change it in game with Shift+Scroll.",
+            new ConfigDescription("Length in metres of the area from south to north. Change it in game with Shift+Scroll.",
                 new AcceptableValueRange<int>(1, 64)));
         _step = config.Bind("Area", "Height Step", 0.5f,
             new ConfigDescription("Metres that Raise ground and Lower ground move the area per use (0.1, 0.25, 0.5, 1 or 2). " +
@@ -139,7 +139,10 @@ internal static class AreaTool
             case HoePieces.LowerName:
                 own = true;
                 return HoeTool.Lower;
-            case HoePieces.ResetName:
+            case HoePieces.ResetHeightName:
+                own = true;
+                return HoeTool.ResetHeight;
+            case HoePieces.ResetPaintName:
                 own = true;
                 return HoeTool.PaintReset;
             default:
@@ -306,16 +309,12 @@ internal static class AreaTool
     }
 
     /// <summary>
-    /// The area around the aim point. Width runs across the view and length along it, so the area turns with
-    /// the camera in 90 degree steps.
+    /// The area around the aim point: width runs west to east (world x) and length south to north (world z),
+    /// whichever way the camera faces.
     /// </summary>
     private static Area CurrentArea()
     {
-        Vector3 forward = GameCamera.instance != null ? GameCamera.instance.transform.forward : Vector3.forward;
-        bool alongX = Mathf.Abs(forward.x) > Mathf.Abs(forward.z);
-        int sizeX = alongX ? Length : Width;
-        int sizeZ = alongX ? Width : Length;
-        return Area.Around(_aimPoint, sizeX, sizeZ);
+        return Area.Around(_aimPoint, Width, Length);
     }
 
     /// <summary>
@@ -384,16 +383,25 @@ internal static class AreaTool
             {
                 for (int z = area.MinZ; z <= area.MaxZ; z++)
                 {
-                    if (tool.Shape == ShapeMode.Flatten)
+                    switch (tool.Shape)
                     {
-                        edits.SetHeight(x, z, value);
-                    }
-                    else
-                    {
-                        edits.AddHeight(x, z, value);
+                        case ShapeMode.Flatten:
+                            edits.SetHeight(x, z, value);
+                            break;
+                        case ShapeMode.Reset:
+                            edits.ResetHeight(x, z);
+                            break;
+                        default:
+                            edits.AddHeight(x, z, value);
+                            break;
                     }
                 }
             }
+        }
+
+        if (tool.Paint == null)
+        {
+            return edits;
         }
 
         Color paint = tool.PaintColor;
@@ -486,7 +494,7 @@ internal static class AreaTool
                 break;
         }
 
-        if (tool.Shape != ShapeMode.None && CountAtLimit(tool, area, value) > 0)
+        if ((tool.Shape is ShapeMode.Flatten or ShapeMode.Raise or ShapeMode.Lower) && CountAtLimit(tool, area, value) > 0)
         {
             text += "\n<color=#ff8060>" + Localization.instance.Localize("$betterhoe_readout_limit") + "</color>";
         }

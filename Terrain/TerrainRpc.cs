@@ -76,6 +76,14 @@ internal static class TerrainRpc
                 continue;
             }
 
+            if (mode == HeightMode.Reset)
+            {
+                compiler.m_levelDelta[index] = 0f;
+                compiler.m_smoothDelta[index] = 0f;
+                compiler.m_modifiedHeight[index] = false;
+                continue;
+            }
+
             // Same bookkeeping as TerrainComp.LevelTerrain: the current height already includes the smooth
             // delta, so fold it into the level delta and clear it.
             float height = map.GetHeight(index % pitch, index / pitch);

@@ -18,6 +18,11 @@ internal enum HeightMode : byte
     /// Move the vertex up or down by the edit's value.
     /// </summary>
     Add = 1,
+
+    /// <summary>
+    /// Undo every height change to the vertex, back to its natural height.
+    /// </summary>
+    Reset = 2,
 }
 
 /// <summary>
@@ -57,6 +62,11 @@ internal sealed class TerrainEdits
     public void AddHeight(float x, float z, float delta)
     {
         _heights.Add(new HeightEdit(new Vector3(x, 0f, z), HeightMode.Add, delta, 1f));
+    }
+
+    public void ResetHeight(float x, float z)
+    {
+        _heights.Add(new HeightEdit(new Vector3(x, 0f, z), HeightMode.Reset, 0f, 1f));
     }
 
     /// <summary>
@@ -114,9 +124,12 @@ internal sealed class TerrainEdits
 
         List<int> paintIndices = [];
         List<PaintEdit> paints = [];
+        // Like vanilla's TerrainOp m_halfOffset: a paint texel covers the cell whose lower corner is its vertex,
+        // so look the texel up half a cell back from the cell's centre.
+        Vector3 halfCell = new(0.5f, 0f, 0.5f);
         foreach (PaintEdit edit in _paints)
         {
-            map.WorldToVertexMask(edit.Point, out int x, out int y);
+            map.WorldToVertexMask(edit.Point - halfCell, out int x, out int y);
             if (x >= 0 && y >= 0 && x <= width && y <= width)
             {
                 paintIndices.Add((y * pitch) + x);

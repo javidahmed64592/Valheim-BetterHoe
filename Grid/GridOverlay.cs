@@ -232,15 +232,24 @@ internal sealed class GridOverlay
         MeshBuilder lines = new();
         float lift = Lift + 0.02f;
 
-        // Ground heights of the area's vertices.
+        // Current and natural (unedited) heights of the area's vertices.
         int countX = area.SizeX + 1;
         int countZ = area.SizeZ + 1;
         float[,] ground = new float[countX, countZ];
+        float[,] natural = new float[countX, countZ];
         for (int i = 0; i < countX; i++)
         {
             for (int j = 0; j < countZ; j++)
             {
-                ground[i, j] = TerrainHeights.Get(area.MinX + i, area.MinZ + j, fallbackHeight);
+                if (TerrainHeights.TryGet(area.MinX + i, area.MinZ + j, out float height, out float naturalHeight))
+                {
+                    ground[i, j] = height;
+                    natural[i, j] = naturalHeight;
+                }
+                else
+                {
+                    ground[i, j] = natural[i, j] = fallbackHeight;
+                }
             }
         }
 
@@ -250,6 +259,7 @@ internal sealed class GridOverlay
             {
                 ShapeMode.Flatten => value,
                 ShapeMode.Raise or ShapeMode.Lower => ground[i, j] + value,
+                ShapeMode.Reset => natural[i, j],
                 _ => ground[i, j],
             };
         }
