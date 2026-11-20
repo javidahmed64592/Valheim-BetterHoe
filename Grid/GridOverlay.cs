@@ -103,11 +103,35 @@ internal sealed class GridOverlay
     private int _gridFrame = -100;
     private bool _hasGrid;
 
-    private (Area area, HoeTool tool, float value) _areaKey;
+    /// <summary>
+    /// What the area layer was last built for; it's rebuilt when this changes.
+    /// </summary>
+    private object _areaKey;
     private int _areaFrame = -100;
     private bool _hasArea;
 
     public void Show(Vector3 aim, Area area, HoeTool tool, float value)
+    {
+        ShowGrid(aim);
+        ShowArea((area, tool, value), () => BuildArea(area, tool, value, aim.y));
+    }
+
+    /// <summary>
+    /// Before a ramp's start is set: a marker at the vertex it would go on.
+    /// </summary>
+    public void ShowRampStart(Vector3 aim, Vector3 point)
+    {
+        ShowGrid(aim);
+        ShowArea(point, () => BuildRampStart(point));
+    }
+
+    public void ShowRamp(Vector3 aim, RampShape ramp)
+    {
+        ShowGrid(aim);
+        ShowArea(ramp, () => BuildRamp(ramp, aim.y));
+    }
+
+    private void ShowGrid(Vector3 aim)
     {
         Vector2Int center = new(Mathf.RoundToInt(aim.x), Mathf.RoundToInt(aim.z));
         bool gridStale = !_hasGrid
@@ -121,17 +145,20 @@ internal sealed class GridOverlay
             _hasGrid = true;
         }
 
-        (Area, HoeTool, float) key = (area, tool, value);
+        _grid.SetActive(_hasGrid);
+    }
+
+    private void ShowArea(object key, System.Action build)
+    {
         bool areaStale = !_hasArea || !key.Equals(_areaKey) || Time.frameCount - _areaFrame >= RefreshFrames;
         if (areaStale && _area.Ensure())
         {
-            BuildArea(area, tool, value, aim.y);
+            build();
             _areaKey = key;
             _areaFrame = Time.frameCount;
             _hasArea = true;
         }
 
-        _grid.SetActive(_hasGrid);
         _area.SetActive(_hasArea);
     }
 
@@ -302,6 +329,98 @@ internal sealed class GridOverlay
         }
 
         _area.Apply(fill, lines);
+    }
+
+    // ----- Ramp -----
+
+    /// <summary>
+    /// A gold cross on the ground at the vertex, and a post up or down to the height the ramp would start at.
+    /// </summary>
+    private void BuildRampStart(Vector3 point)
+    {
+        MeshBuilder fill = new();
+        MeshBuilder lines = new();
+        float lift = Lift + 0.03f;
+        float width = _areaLineWidth.Value;
+        Color color = _areaColor.Value;
+
+        AddGroundLine(lines, point + new Vector3(-0.75f, 0f, 0f), point + new Vector3(0.75f, 0f, 0f), lift, width, color, point.y);
+        AddGroundLine(lines, point + new Vector3(0f, 0f, -0.75f), point + new Vector3(0f, 0f, 0.75f), lift, width, color, point.y);
+
+        float ground = TerrainHeights.GroundAt(point.x, point.z, point.y);
+        Vector3 bottom = new(point.x, Mathf.Min(ground, point.y), point.z);
+        Vector3 top = new(point.x, Mathf.Max(ground, point.y) + 1f, point.z);
+        lines.AddPost(bottom, top, width, _previewColor.Value);
+
+        _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// The ramp's surface (it's flat, so one quad), its edges at the new heights with posts at the corners, its
+    /// outline on the ground in gold, and the outer edges of the blend bands on the ground.
+    /// </summary>
+    private void BuildRamp(RampShape ramp, float fallbackHeight)
+    {
+        MeshBuilder fill = new();
+        MeshBuilder lines = new();
+        float lift = Lift + 0.03f;
+        float width = _areaLineWidth.Value;
+        Color preview = _previewColor.Value;
+        Color fillColor = preview;
+        fillColor.a = _fillAlpha.Value;
+
+        Vector3[] core = ramp.Corners(0f);
+        if (ramp.Length > 0.01f)
+        {
+            Vector3 up = Vector3.up * lift;
+            fill.AddQuad(core[0] + up, core[1] + up, core[2] + up, core[3] + up, fillColor);
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector3 a = core[i];
+            Vector3 b = core[(i + 1) % 4];
+            lines.AddRibbon([a + (Vector3.up * lift), b + (Vector3.up * lift)], [preview, preview], width);
+            AddGroundLine(lines, a, b, lift, width, _areaColor.Value, fallbackHeight);
+
+            float ground = TerrainHeights.GroundAt(a.x, a.z, a.y);
+            if (Mathf.Abs(ground - a.y) > 0.05f)
+            {
+                lines.AddPost(new Vector3(a.x, ground, a.z), a, width, preview);
+            }
+        }
+
+        if (ramp.Blend > 0f)
+        {
+            Color faint = preview;
+            faint.a *= 0.45f;
+            Vector3[] outer = ramp.Corners(ramp.Blend);
+            AddGroundLine(lines, outer[3], outer[0], lift, width * 0.6f, faint, fallbackHeight);
+            AddGroundLine(lines, outer[1], outer[2], lift, width * 0.6f, faint, fallbackHeight);
+        }
+
+        _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// A ribbon on the ground from a to b, sampled every half metre so it follows the terrain.
+    /// </summary>
+    private static void AddGroundLine(MeshBuilder mesh, Vector3 a, Vector3 b, float lift, float width, Color color, float fallbackHeight)
+    {
+        Vector3 flat = b - a;
+        flat.y = 0f;
+        int segments = Mathf.Max(1, Mathf.CeilToInt(flat.magnitude / 0.5f));
+        List<Vector3> points = [];
+        List<Color> colors = [];
+        for (int k = 0; k <= segments; k++)
+        {
+            Vector3 point = Vector3.Lerp(a, b, k / (float)segments);
+            point.y = TerrainHeights.GroundAt(point.x, point.z, fallbackHeight) + lift;
+            points.Add(point);
+            colors.Add(color);
+        }
+
+        mesh.AddRibbon(points, colors, width);
     }
 
     private static void AddOutline(MeshBuilder mesh, Area area, System.Func<int, int, float> height, float width, Color color)

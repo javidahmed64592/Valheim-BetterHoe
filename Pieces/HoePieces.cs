@@ -9,7 +9,7 @@ using UnityEngine;
 namespace BetterHoe.Pieces;
 
 /// <summary>
-/// Adds the hoe's new tools (Lower ground, Reset height and Reset paint) and sets the costs: shaping the ground is
+/// Adds the hoe's new tools (Ramp, Lower ground, Reset height and Reset paint) and sets the costs: shaping the ground is
 /// free, painting it costs what vanilla charges, and nothing needs a crafting station. The new tools are copies
 /// of vanilla pieces (for the ghost, sounds and dust) that the area tool handles itself, so their vanilla terrain
 /// operation never runs.
@@ -17,6 +17,7 @@ namespace BetterHoe.Pieces;
 internal static class HoePieces
 {
     public const string LowerName = "BetterHoe_Lower";
+    public const string RampName = "BetterHoe_Ramp";
     public const string ResetHeightName = "BetterHoe_ResetHeight";
     public const string ResetPaintName = "BetterHoe_ResetPaint";
 
@@ -55,6 +56,8 @@ internal static class HoePieces
         }
 
         Sprite raiseIcon = PrefabManager.Instance.GetPrefab(RaisePrefab)?.GetComponent<Piece>()?.m_icon;
+        AddPiece(RampName, LevelPrefab, "$betterhoe_piece_ramp", "$betterhoe_piece_ramp_description",
+            raiseIcon != null ? IconMaker.Ramp(raiseIcon) : null);
         AddPiece(LowerName, RaisePrefab, "$betterhoe_piece_lower", "$betterhoe_piece_lower_description",
             raiseIcon != null ? IconMaker.FlipVertically(raiseIcon) : null);
         AddPiece(ResetHeightName, LevelPrefab, "$betterhoe_piece_reset_height", "$betterhoe_piece_reset_height_description",
@@ -81,8 +84,8 @@ internal static class HoePieces
     }
 
     /// <summary>
-    /// Puts Lower ground and Reset height after Raise ground, and Reset paint after Paved road, instead of after
-    /// the stones.
+    /// Puts Ramp after Level ground, Lower ground and Reset height after Raise ground, and Reset paint after Paved
+    /// road, instead of after the stones.
     /// </summary>
     private static void OrderPieces()
     {
@@ -92,6 +95,7 @@ internal static class HoePieces
             return;
         }
 
+        MoveAfter(table.m_pieces, RampName, LevelPrefab);
         MoveAfter(table.m_pieces, LowerName, RaisePrefab);
         MoveAfter(table.m_pieces, ResetHeightName, LowerName);
         MoveAfter(table.m_pieces, ResetPaintName, PavedPrefab);

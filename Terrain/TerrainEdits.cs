@@ -43,13 +43,48 @@ internal sealed class TerrainEdits
         public readonly float Weight = weight;
     }
 
-    private readonly struct PaintEdit(Rect rect, Color color)
+    /// <summary>
+    /// A convex quad in world x / z, corners in order around it, and its paint colour.
+    /// </summary>
+    private readonly struct PaintEdit(Vector2[] corners, Color color)
     {
-        /// <summary>
-        /// World x / z bounds.
-        /// </summary>
-        public readonly Rect Rect = rect;
+        public readonly Vector2[] Corners = corners;
         public readonly Color Color = color;
+
+        public Rect Bounds
+        {
+            get
+            {
+                Vector2 min = Corners[0];
+                Vector2 max = Corners[0];
+                foreach (Vector2 corner in Corners)
+                {
+                    min = Vector2.Min(min, corner);
+                    max = Vector2.Max(max, corner);
+                }
+
+                return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+            }
+        }
+
+        /// <summary>
+        /// True when the point is inside the quad (on the same side of every edge).
+        /// </summary>
+        public bool Contains(Vector2 point)
+        {
+            bool negative = false;
+            bool positive = false;
+            for (int i = 0; i < Corners.Length; i++)
+            {
+                Vector2 a = Corners[i];
+                Vector2 b = Corners[(i + 1) % Corners.Length];
+                float cross = ((b.x - a.x) * (point.y - a.y)) - ((b.y - a.y) * (point.x - a.x));
+                negative |= cross < -0.0001f;
+                positive |= cross > 0.0001f;
+            }
+
+            return !(negative && positive);
+        }
     }
 
     private readonly List<HeightEdit> _heights = [];
@@ -79,7 +114,21 @@ internal sealed class TerrainEdits
     /// </summary>
     public void Paint(float minX, float minZ, float maxX, float maxZ, Color color)
     {
-        _paints.Add(new PaintEdit(Rect.MinMaxRect(minX, minZ, maxX, maxZ), color));
+        _paints.Add(new PaintEdit([new(minX, minZ), new(maxX, minZ), new(maxX, maxZ), new(minX, maxZ)], color));
+    }
+
+    /// <summary>
+    /// Paints a convex quad given by its world corners in order around it (heights are ignored).
+    /// </summary>
+    public void Paint(Vector3[] corners, Color color)
+    {
+        Vector2[] flat = new Vector2[corners.Length];
+        for (int i = 0; i < corners.Length; i++)
+        {
+            flat[i] = new Vector2(corners[i].x, corners[i].z);
+        }
+
+        _paints.Add(new PaintEdit(flat, color));
     }
 
     /// <summary>
@@ -137,14 +186,19 @@ internal sealed class TerrainEdits
         List<Color> paints = [];
         foreach (PaintEdit edit in _paints)
         {
-            TexelRange(edit.Rect.xMin - corner.x, edit.Rect.xMax - corner.x, texel, width, out int x0, out int x1);
-            TexelRange(edit.Rect.yMin - corner.z, edit.Rect.yMax - corner.z, texel, width, out int y0, out int y1);
+            Rect bounds = edit.Bounds;
+            TexelRange(bounds.xMin - corner.x, bounds.xMax - corner.x, texel, width, out int x0, out int x1);
+            TexelRange(bounds.yMin - corner.z, bounds.yMax - corner.z, texel, width, out int y0, out int y1);
             for (int y = y0; y <= y1; y++)
             {
                 for (int x = x0; x <= x1; x++)
                 {
-                    paintIndices.Add((y * pitch) + x);
-                    paints.Add(edit.Color);
+                    Vector2 drawn = new(corner.x + ((x + 0.5f) * texel), corner.z + ((y + 0.5f) * texel));
+                    if (edit.Contains(drawn))
+                    {
+                        paintIndices.Add((y * pitch) + x);
+                        paints.Add(edit.Color);
+                    }
                 }
             }
         }

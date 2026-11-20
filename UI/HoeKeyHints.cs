@@ -32,7 +32,7 @@ internal static class HoeKeyHints
     /// </summary>
     private const float StackLift = 12f;
 
-    private enum Show { Area = 0, Step = 1, GridToggle = 2 }
+    private enum Show { Area = 0, Length = 1, Step = 2, Blend = 3, GridToggle = 4 }
 
     private sealed class Hint
     {
@@ -45,8 +45,9 @@ internal static class HoeKeyHints
     private static readonly List<Hint> Hints =
     [
         new Hint { Label = "$betterhoe_hint_width", Keys = ["Left Ctrl", ScrollIcon], Show = Show.Area },
-        new Hint { Label = "$betterhoe_hint_length", Keys = ["Left Shift", ScrollIcon], Show = Show.Area },
+        new Hint { Label = "$betterhoe_hint_length", Keys = ["Left Shift", ScrollIcon], Show = Show.Length },
         new Hint { Label = "$betterhoe_hint_step", Keys = ["Left Alt", ScrollIcon], Show = Show.Step },
+        new Hint { Label = "$betterhoe_hint_blend", Keys = ["Left Alt", ScrollIcon], Show = Show.Blend },
         new Hint { Label = "$betterhoe_hint_grid", Keys = ["Left Ctrl", "$button_mouse1"], Show = Show.GridToggle },
     ];
 
@@ -100,7 +101,9 @@ internal static class HoeKeyHints
             bool shown = !menuOpen && hint.Show switch
             {
                 Show.Area => areaTool != null,
+                Show.Length => areaTool != null && areaTool.Shape != ShapeMode.Ramp,
                 Show.Step => areaTool != null && areaTool.Shape is ShapeMode.Raise or ShapeMode.Lower,
+                Show.Blend => areaTool?.Shape == ShapeMode.Ramp,
                 _ => AreaTool.GridToggleApplies(player),
             };
 
@@ -124,7 +127,11 @@ internal static class HoeKeyHints
     private static void UpdateVanilla(Piece piece, HoeTool terrainTool, HoeTool areaTool)
     {
         // Place: the area action, the tool's own name with the vanilla brush, or "Place" for the stones.
-        if (areaTool != null)
+        if (areaTool?.Shape == ShapeMode.Ramp)
+        {
+            SetVanilla("Place", true, AreaTool.RampStarted ? "$betterhoe_hint_ramp_end" : "$betterhoe_hint_ramp_start");
+        }
+        else if (areaTool != null)
         {
             SetVanilla("Place", true, areaTool.ActionToken);
         }
@@ -138,7 +145,7 @@ internal static class HoeKeyHints
         }
 
         // The hoe can't remove or copy pieces, so middle-click only locks the height for Level ground.
-        if (areaTool?.Shape == ShapeMode.Flatten)
+        if (areaTool?.Shape is ShapeMode.Flatten or ShapeMode.Ramp)
         {
             SetVanilla("Remove", true, AreaTool.HeightLocked ? "$betterhoe_hint_unlock" : "$betterhoe_hint_lock");
         }
@@ -147,7 +154,7 @@ internal static class HoeKeyHints
             SetVanilla("Remove", false, null);
         }
 
-        SetVanilla("BuildMenu", true, "$betterhoe_hint_menu");
+        SetVanilla("BuildMenu", true, AreaTool.RampStarted ? "$betterhoe_hint_ramp_cancel" : "$betterhoe_hint_menu");
 
         // Shift places vanilla Level ground and Paved road at the aimed height instead of the player's feet.
         // The area always uses the aimed height, and Shift+Scroll sets its length.
