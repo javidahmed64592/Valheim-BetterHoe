@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 using BetterHoe.History;
@@ -8,14 +9,17 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+using Object = UnityEngine.Object;
+
 namespace BetterHoe.UI;
 
 /// <summary>
-/// Rewrites the vanilla build key hints while the hoe is out. Hints for things the hoe can't do (removing,
-/// copying, snapping, and rotating terrain tools) are hidden, the rest say what they do with the hoe ("Level
-/// area" instead of "Place", "Hoe menu" instead of "Build Menu"), and the area controls are added in a stack
-/// above the vanilla row on the right, built from clones of the vanilla hint parts like BetterHammer's.
-/// Everything is put back when the hoe is put away.
+/// The key hints while the hoe is out. With the hoe menu closed, the vanilla hint row is hidden and every hint
+/// is drawn in one stack at the bottom right instead, built from clones of the vanilla hint parts. Each hint has
+/// a fixed row: one that doesn't apply right now is invisible but keeps its space, so nothing moves when the
+/// tool or the grid changes. A hint's text only changes when its key does something different. With the hoe
+/// menu open, the vanilla row (with its menu hints) is shown, relabelled for the hoe. Everything vanilla is
+/// put back when the hoe is put away.
 /// </summary>
 internal static class HoeKeyHints
 {
@@ -34,31 +38,117 @@ internal static class HoeKeyHints
     private const float RowSpacing = 16f;
 
     /// <summary>
-    /// How far the stack sits above the vanilla row, so its scroll icons (drawn bigger than their rows) don't
-    /// touch the vanilla hints.
+    /// What a hint's label depends on, worked out once a frame.
     /// </summary>
-    private const float StackLift = 12f;
+    private sealed class State
+    {
+        public Player Player;
+        public Piece Piece;
 
-    private enum Show { Area = 0, Length = 1, Step = 2, Blend = 3, GridToggle = 4, Undo = 5, Redo = 6 }
+        /// <summary>
+        /// The selected piece's terrain tool, whether or not the grid is on; null for the stones.
+        /// </summary>
+        public HoeTool TerrainTool;
+
+        /// <summary>
+        /// The terrain tool when it uses the grid; null with vanilla's brush.
+        /// </summary>
+        public HoeTool AreaTool;
+    }
 
     private sealed class Hint
     {
-        public string Label;
         public string[] Keys;
-        public Show Show;
+
+        /// <summary>
+        /// The hint's label token, or null to hide it.
+        /// </summary>
+        public Func<State, string> Label;
         public CanvasGroup Group;
+        public TextMeshProUGUI LabelText;
+        public string ShownLabel;
     }
 
+    /// <summary>
+    /// Top to bottom. The ones that show most often are at the bottom, next to the screen edge.
+    /// </summary>
     private static readonly List<Hint> Hints =
     [
-        new Hint { Label = "$betterhoe_hint_undo", Keys = [UndoKey], Show = Show.Undo },
-        new Hint { Label = "$betterhoe_hint_redo", Keys = [RedoKey], Show = Show.Redo },
-        new Hint { Label = "$betterhoe_hint_width", Keys = ["Left Ctrl", ScrollIcon], Show = Show.Area },
-        new Hint { Label = "$betterhoe_hint_length", Keys = ["Left Shift", ScrollIcon], Show = Show.Length },
-        new Hint { Label = "$betterhoe_hint_step", Keys = ["Left Alt", ScrollIcon], Show = Show.Step },
-        new Hint { Label = "$betterhoe_hint_blend", Keys = ["Left Alt", ScrollIcon], Show = Show.Blend },
-        new Hint { Label = "$betterhoe_hint_grid", Keys = ["Left Ctrl", "$button_mouse1"], Show = Show.GridToggle },
+        new Hint { Keys = [UndoKey], Label = _ => UndoHistory.CanUndo ? "$betterhoe_hint_undo" : null },
+        new Hint { Keys = [RedoKey], Label = _ => UndoHistory.CanRedo ? "$betterhoe_hint_redo" : null },
+        new Hint { Keys = ["Left Ctrl", ScrollIcon], Label = s => s.AreaTool != null ? "$betterhoe_hint_width" : null },
+        new Hint
+        {
+            Keys = ["Left Shift", ScrollIcon],
+            Label = s => s.AreaTool != null && s.AreaTool.Shape != ShapeMode.Ramp ? "$betterhoe_hint_length" : null,
+        },
+        new Hint
+        {
+            Keys = ["Left Alt", ScrollIcon],
+            Label = s => s.AreaTool?.Shape switch
+            {
+                ShapeMode.Raise or ShapeMode.Lower => "$betterhoe_hint_step",
+                ShapeMode.Ramp => "$betterhoe_hint_blend",
+                _ => null,
+            },
+        },
+        new Hint
+        {
+            Keys = ["Left Ctrl", "$KEY_BuildMenu"],
+            Label = s => AreaTool.GridToggleApplies(s.Player) ? "$betterhoe_hint_grid" : null,
+        },
+        new Hint
+        {
+            // Vanilla Level ground and Paved road level to the aimed height instead of the player's feet.
+            Keys = ["$KEY_AltPlace"],
+            Label = s => s.AreaTool == null && s.TerrainTool != null && s.Piece.m_allowAltGroundPlacement ? "$betterhoe_hint_altplace" : null,
+        },
+        new Hint { Keys = [ScrollIcon], Label = s => s.TerrainTool == null ? "$hud_rotate" : null },
+        new Hint
+        {
+            Keys = ["$KEY_Remove"],
+            Label = LockLabel,
+        },
+        new Hint { Keys = ["$KEY_BuildMenu"], Label = _ => AreaTool.RampStarted ? "$betterhoe_hint_ramp_cancel" : "$betterhoe_hint_menu" },
+        new Hint { Keys = ["$KEY_Attack"], Label = PlaceLabel },
     ];
+
+    /// <summary>
+    /// Every label a hint can show, so the label column is made wide enough for all of them.
+    /// </summary>
+    private static readonly string[] AllLabels =
+    [
+        "$betterhoe_hint_undo", "$betterhoe_hint_redo", "$betterhoe_hint_width", "$betterhoe_hint_length",
+        "$betterhoe_hint_step", "$betterhoe_hint_blend", "$betterhoe_hint_grid", "$betterhoe_hint_altplace",
+        "$hud_rotate", "$betterhoe_hint_lock", "$betterhoe_hint_unlock", "$betterhoe_hint_ramp_cancel",
+        "$betterhoe_hint_menu", "$hud_place", "$betterhoe_hint_ramp_start", "$betterhoe_hint_ramp_end",
+        "$betterhoe_hint_flatten", "$betterhoe_hint_raise", "$betterhoe_hint_lower", "$betterhoe_hint_reset_height",
+        "$betterhoe_hint_path", "$betterhoe_hint_paved", "$betterhoe_hint_reset_paint",
+    ];
+
+    /// <summary>
+    /// Middle-click locks the height for Level ground and the ramp on the grid; with anything else it does nothing.
+    /// </summary>
+    private static string LockLabel(State state)
+    {
+        bool locks = state.AreaTool?.Shape is ShapeMode.Flatten or ShapeMode.Ramp;
+        string token = AreaTool.HeightLocked ? "$betterhoe_hint_unlock" : "$betterhoe_hint_lock";
+        return locks ? token : null;
+    }
+
+    /// <summary>
+    /// What the place key does. The same with the grid on or off, as it does the same thing either way.
+    /// </summary>
+    private static string PlaceLabel(State state)
+    {
+        string ramp = AreaTool.RampStarted ? "$betterhoe_hint_ramp_end" : "$betterhoe_hint_ramp_start";
+        return state.TerrainTool?.Shape switch
+        {
+            null => "$hud_place",
+            ShapeMode.Ramp => ramp,
+            _ => state.TerrainTool.ActionToken,
+        };
+    }
 
     /// <summary>
     /// A vanilla hint this class changes: its object, its label and the label's vanilla text.
@@ -73,6 +163,8 @@ internal static class HoeKeyHints
 
     private static readonly Dictionary<string, VanillaHint> Vanilla = [];
     private static readonly string[] VanillaNames = ["Place", "Remove", "BuildMenu", "AltPlace", "Snap", "Copy", "rotate"];
+
+    private static readonly State Current = new();
 
     private static GameObject _container;
     private static RectTransform _stack;
@@ -100,26 +192,35 @@ internal static class HoeKeyHints
             return;
         }
 
-        HoeTool terrainTool = AreaTool.SelectedTerrainTool(player);
-        HoeTool areaTool = AreaTool.ActiveTool(player);
-        UpdateVanilla(piece, terrainTool, areaTool);
+        Current.Player = player;
+        Current.Piece = piece;
+        Current.TerrainTool = AreaTool.SelectedTerrainTool(player);
+        Current.AreaTool = AreaTool.ActiveTool(player);
 
-        bool menuOpen = Hud.IsPieceSelectionVisible();
+        // With the menu open, vanilla's row carries the menu's own hints, so it stays, relabelled.
+        if (Hud.IsPieceSelectionVisible())
+        {
+            UpdateVanillaForMenu();
+            SetContainerActive(false);
+            return;
+        }
+
+        foreach (string name in VanillaNames)
+        {
+            SetVanilla(name, false, null);
+        }
+
         foreach (Hint hint in Hints)
         {
-            bool shown = !menuOpen && hint.Show switch
-            {
-                Show.Area => areaTool != null,
-                Show.Length => areaTool != null && areaTool.Shape != ShapeMode.Ramp,
-                Show.Step => areaTool != null && areaTool.Shape is ShapeMode.Raise or ShapeMode.Lower,
-                Show.Blend => areaTool?.Shape == ShapeMode.Ramp,
-                Show.Undo => UndoHistory.CanUndo,
-                Show.Redo => UndoHistory.CanRedo,
-                _ => AreaTool.GridToggleApplies(player),
-            };
+            string label = hint.Label(Current);
 
             // A hidden hint keeps its space, so the others don't move.
-            hint.Group.alpha = shown ? 1f : 0f;
+            hint.Group.alpha = label != null ? 1f : 0f;
+            if (label != null && label != hint.ShownLabel)
+            {
+                hint.ShownLabel = label;
+                hint.LabelText.text = Localization.instance.Localize(label);
+            }
         }
 
         SetContainerActive(true);
@@ -133,48 +234,17 @@ internal static class HoeKeyHints
     }
 
     /// <summary>
-    /// Shows, hides and relabels the vanilla hints for the selected hoe piece.
+    /// With the hoe menu open: the vanilla hints the hoe uses, relabelled, and the rest hidden.
     /// </summary>
-    private static void UpdateVanilla(Piece piece, HoeTool terrainTool, HoeTool areaTool)
+    private static void UpdateVanillaForMenu()
     {
-        // Place: the area action, the tool's own name with the vanilla brush, or "Place" for the stones.
-        if (areaTool?.Shape == ShapeMode.Ramp)
-        {
-            SetVanilla("Place", true, AreaTool.RampStarted ? "$betterhoe_hint_ramp_end" : "$betterhoe_hint_ramp_start");
-        }
-        else if (areaTool != null)
-        {
-            SetVanilla("Place", true, areaTool.ActionToken);
-        }
-        else if (terrainTool != null)
-        {
-            SetVanilla("Place", true, piece.m_name);
-        }
-        else
-        {
-            SetVanilla("Place", true, null);
-        }
-
-        // The hoe can't remove or copy pieces, so middle-click only locks the height for Level ground.
-        if (areaTool?.Shape is ShapeMode.Flatten or ShapeMode.Ramp)
-        {
-            SetVanilla("Remove", true, AreaTool.HeightLocked ? "$betterhoe_hint_unlock" : "$betterhoe_hint_lock");
-        }
-        else
-        {
-            SetVanilla("Remove", false, null);
-        }
-
-        SetVanilla("BuildMenu", true, AreaTool.RampStarted ? "$betterhoe_hint_ramp_cancel" : "$betterhoe_hint_menu");
-
-        // Shift places vanilla Level ground and Paved road at the aimed height instead of the player's feet.
-        // The area always uses the aimed height, and Shift+Scroll sets its length.
-        SetVanilla("AltPlace", areaTool == null && terrainTool != null && piece.m_allowAltGroundPlacement, "$betterhoe_hint_altplace");
-
-        // Hoe pieces have no snap points, and terrain tools don't rotate.
+        SetVanilla("Place", true, PlaceLabel(Current));
+        SetVanilla("Remove", false, null);
+        SetVanilla("BuildMenu", true, "$betterhoe_hint_menu");
+        SetVanilla("AltPlace", false, null);
         SetVanilla("Snap", false, null);
         SetVanilla("Copy", false, null);
-        SetVanilla("rotate", terrainTool == null, null);
+        SetVanilla("rotate", false, null);
     }
 
     /// <summary>
@@ -193,7 +263,7 @@ internal static class HoeKeyHints
             hint.Changed = true;
         }
 
-        if (hint.Label == null)
+        if (hint.Label == null || !active)
         {
             return;
         }
@@ -235,15 +305,16 @@ internal static class HoeKeyHints
     }
 
     /// <summary>
-    /// The stack's bottom right corner sits just above the right end of the vanilla row.
+    /// The stack's bottom right corner sits where the vanilla row's last hint would end.
     /// </summary>
     private static void Align()
     {
         Vector3[] corners = new Vector3[4];
         _keyboard.GetWorldCorners(corners); // 0 = bottom left, 1 = top left, 2 = top right, 3 = bottom right
         HorizontalLayoutGroup layout = _keyboard.GetComponent<HorizontalLayoutGroup>();
-        float padding = layout != null ? layout.padding.right * _keyboard.lossyScale.x : 0f;
-        _stack.position = new Vector3(corners[2].x - padding, corners[2].y + (StackLift * _stack.lossyScale.y), corners[2].z);
+        float right = layout != null ? layout.padding.right * _keyboard.lossyScale.x : 0f;
+        float bottom = layout != null ? layout.padding.bottom * _keyboard.lossyScale.y : 0f;
+        _stack.position = new Vector3(corners[3].x - right, corners[3].y + bottom, corners[3].z);
     }
 
     private static bool Create(KeyHints keyHints)
@@ -255,8 +326,9 @@ internal static class HoeKeyHints
         Transform plusTemplate = copy != null ? copy.Find("Text (1)") : null;
         Transform keyTemplate = copy != null ? copy.Find("key_bkg") : null;
         Transform iconTemplate = rotate != null ? rotate.Find("mousew_icon") : null;
+        HorizontalLayoutGroup rowLayout = copy != null ? copy.GetComponent<HorizontalLayoutGroup>() : null;
 
-        if (labelTemplate == null || plusTemplate == null || keyTemplate == null || iconTemplate == null)
+        if (labelTemplate == null || plusTemplate == null || keyTemplate == null || iconTemplate == null || rowLayout == null)
         {
             _createFailed = true;
             Jotunn.Logger.LogWarning("Vanilla build key hints layout not as expected, not changing the hoe's key hints.");
@@ -279,35 +351,42 @@ internal static class HoeKeyHints
         RectTransform container = new GameObject(ContainerName, typeof(RectTransform)).GetComponent<RectTransform>();
         container.SetParent(keyHints.m_buildHints.transform, false);
         RectTransform stack = CreateStack(container);
+        string longestLabel = LongestLabel();
 
         foreach (Hint hint in Hints)
         {
+            // A vanilla multi-key hint (for its row settings), emptied: a label, then a group with the keys.
             GameObject item = Object.Instantiate(copy.gameObject, stack, false);
-            item.name = "BetterHoe_Hint_" + hint.Label.TrimStart('$');
+            item.name = "BetterHoe_Hint";
             item.SetActive(true);
             for (int i = item.transform.childCount - 1; i >= 0; i--)
             {
                 Object.DestroyImmediate(item.transform.GetChild(i).gameObject);
             }
 
-            _ = AddText(labelTemplate, item.transform, Localization.instance.Localize(hint.Label));
-            hint.Keys = ExpandShortcuts(hint.Keys);
-            for (int i = 0; i < hint.Keys.Length; i++)
+            // Sized with the longest label first, so the column fits every label.
+            hint.LabelText = AddText(labelTemplate, item.transform, longestLabel);
+            hint.LabelText.alignment = TextAlignmentOptions.Right;
+            hint.ShownLabel = null;
+
+            Transform keys = CreateKeyGroup(item.transform, rowLayout);
+            string[] keyNames = ExpandShortcuts(hint.Keys);
+            for (int i = 0; i < keyNames.Length; i++)
             {
                 if (i > 0)
                 {
-                    _ = AddText(plusTemplate, item.transform, "+");
+                    _ = AddText(plusTemplate, keys, "+");
                 }
 
-                if (hint.Keys[i] == ScrollIcon)
+                if (keyNames[i] == ScrollIcon)
                 {
-                    AddScrollIcon(iconTemplate, item.transform);
+                    AddScrollIcon(iconTemplate, keys);
                 }
                 else
                 {
-                    GameObject key = Object.Instantiate(keyTemplate.gameObject, item.transform, false);
+                    GameObject key = Object.Instantiate(keyTemplate.gameObject, keys, false);
                     key.SetActive(true);
-                    key.GetComponentInChildren<TextMeshProUGUI>().text = Localization.instance.Localize(hint.Keys[i]);
+                    key.GetComponentInChildren<TextMeshProUGUI>().text = Localization.instance.Localize(keyNames[i]);
                 }
             }
 
@@ -316,12 +395,31 @@ internal static class HoeKeyHints
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(stack);
         EqualiseWidths();
+        foreach (Hint hint in Hints)
+        {
+            hint.LabelText.text = "";
+        }
 
         _container = container.gameObject;
         _stack = stack;
         _keyboard = (RectTransform)keyboard;
         _layoutDirty = true;
         return true;
+    }
+
+    private static string LongestLabel()
+    {
+        string longest = "";
+        foreach (string token in AllLabels)
+        {
+            string text = Localization.instance.Localize(token);
+            if (text.Length > longest.Length)
+            {
+                longest = text;
+            }
+        }
+
+        return longest;
     }
 
     private static RectTransform CreateStack(RectTransform parent)
@@ -342,6 +440,28 @@ internal static class HoeKeyHints
         fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         return stack;
+    }
+
+    /// <summary>
+    /// The keys of a row in their own group, laid out like a vanilla hint, starting from the left.
+    /// </summary>
+    private static Transform CreateKeyGroup(Transform row, HorizontalLayoutGroup template)
+    {
+        GameObject group = new("Keys", typeof(RectTransform));
+        group.transform.SetParent(row, false);
+        HorizontalLayoutGroup layout = group.AddComponent<HorizontalLayoutGroup>();
+        layout.spacing = template.spacing;
+        layout.childAlignment = TextAnchor.MiddleLeft;
+        layout.childControlWidth = template.childControlWidth;
+        layout.childControlHeight = template.childControlHeight;
+        layout.childForceExpandWidth = false;
+        layout.childForceExpandHeight = false;
+
+        // As tall as a key box, whether or not the row controls its children's heights.
+        ((RectTransform)group.transform).sizeDelta = new Vector2(0f, IconHeight);
+        LayoutElement size = group.AddComponent<LayoutElement>();
+        size.minHeight = size.preferredHeight = IconHeight;
+        return group.transform;
     }
 
     /// <summary>
@@ -402,35 +522,25 @@ internal static class HoeKeyHints
     }
 
     /// <summary>
-    /// Gives matching parts of every row (label, key, "+", key or icon) the same width, so the keys line up.
+    /// Gives every row's label and key group the same widths, so labels line up on the right and keys on the
+    /// left, like a form.
     /// </summary>
     private static void EqualiseWidths()
     {
-        List<Transform> items = [];
-        foreach (Hint hint in Hints)
-        {
-            items.Add(hint.Group.transform);
-        }
-
-        int parts = int.MaxValue;
-        foreach (Transform item in items)
-        {
-            parts = Mathf.Min(parts, item.childCount);
-        }
-
-        for (int part = 0; part < parts; part++)
+        for (int part = 0; part < 2; part++)
         {
             float width = 0f;
-            foreach (Transform item in items)
+            foreach (Hint hint in Hints)
             {
-                width = Mathf.Max(width, ((RectTransform)item.GetChild(part)).rect.width);
+                width = Mathf.Max(width, LayoutUtility.GetPreferredWidth((RectTransform)hint.Group.transform.GetChild(part)));
             }
 
-            foreach (Transform item in items)
+            foreach (Hint hint in Hints)
             {
-                GameObject child = item.GetChild(part).gameObject;
+                GameObject child = hint.Group.transform.GetChild(part).gameObject;
                 LayoutElement layout = child.GetComponent<LayoutElement>() ?? child.AddComponent<LayoutElement>();
                 layout.minWidth = width;
+                layout.preferredWidth = width;
             }
         }
     }
@@ -479,6 +589,8 @@ internal static class HoeKeyHints
         foreach (Hint hint in Hints)
         {
             hint.Group = null;
+            hint.LabelText = null;
+            hint.ShownLabel = null;
         }
     }
 }
