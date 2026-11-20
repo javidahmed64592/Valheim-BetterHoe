@@ -33,6 +33,7 @@ internal sealed class GridOverlay
     private static ConfigEntry<Color> _areaColor;
     private static ConfigEntry<Color> _previewColor;
     private static ConfigEntry<float> _fillAlpha;
+    private static ConfigEntry<Color> _blendColor;
 
     private static int Radius => _radius.Value;
     private static float FadeStart => Mathf.Min(_fadeStart.Value, Radius - 0.01f);
@@ -94,6 +95,8 @@ internal sealed class GridOverlay
         _fillAlpha = config.Bind(section, "Preview Fill Alpha", 0.18f,
             new ConfigDescription("Opacity of the tinted surface showing the result inside the area.",
                 new AcceptableValueRange<float>(0f, 1f)));
+        _blendColor = config.Bind(section, "Ramp Blend Color", new Color(0.8f, 0.45f, 1f, 0.9f),
+            "Colour (including alpha) of a ramp's edge blend: the band beside the ramp where the ground eases into it.");
     }
 
     private readonly Layer _grid = new("BetterHoe_Grid");
@@ -103,11 +106,35 @@ internal sealed class GridOverlay
     private int _gridFrame = -100;
     private bool _hasGrid;
 
-    private (Area area, HoeTool tool, float value) _areaKey;
+    /// <summary>
+    /// What the area layer was last built for; it's rebuilt when this changes.
+    /// </summary>
+    private object _areaKey;
     private int _areaFrame = -100;
     private bool _hasArea;
 
     public void Show(Vector3 aim, Area area, HoeTool tool, float value)
+    {
+        ShowGrid(aim);
+        ShowArea((area, tool, value), () => BuildArea(area, tool, value, aim.y));
+    }
+
+    /// <summary>
+    /// Before a ramp's start is set: a marker at the vertex it would go on.
+    /// </summary>
+    public void ShowRampStart(Vector3 aim, Vector3 point)
+    {
+        ShowGrid(aim);
+        ShowArea(point, () => BuildRampStart(point));
+    }
+
+    public void ShowRamp(Vector3 aim, RampShape ramp)
+    {
+        ShowGrid(aim);
+        ShowArea(ramp, () => BuildRamp(ramp, aim.y));
+    }
+
+    private void ShowGrid(Vector3 aim)
     {
         Vector2Int center = new(Mathf.RoundToInt(aim.x), Mathf.RoundToInt(aim.z));
         bool gridStale = !_hasGrid
@@ -121,17 +148,20 @@ internal sealed class GridOverlay
             _hasGrid = true;
         }
 
-        (Area, HoeTool, float) key = (area, tool, value);
+        _grid.SetActive(_hasGrid);
+    }
+
+    private void ShowArea(object key, System.Action build)
+    {
         bool areaStale = !_hasArea || !key.Equals(_areaKey) || Time.frameCount - _areaFrame >= RefreshFrames;
         if (areaStale && _area.Ensure())
         {
-            BuildArea(area, tool, value, aim.y);
+            build();
             _areaKey = key;
             _areaFrame = Time.frameCount;
             _hasArea = true;
         }
 
-        _grid.SetActive(_hasGrid);
         _area.SetActive(_hasArea);
     }
 
@@ -304,6 +334,138 @@ internal sealed class GridOverlay
         _area.Apply(fill, lines);
     }
 
+    // ----- Ramp -----
+
+    /// <summary>
+    /// A gold cross on the ground at the vertex, and a post up or down to the height the ramp would start at.
+    /// </summary>
+    private void BuildRampStart(Vector3 point)
+    {
+        MeshBuilder fill = new();
+        MeshBuilder lines = new();
+        float lift = Lift + 0.03f;
+        float width = _areaLineWidth.Value;
+        Color color = _areaColor.Value;
+
+        AddGroundLine(lines, point + new Vector3(-0.75f, 0f, 0f), point + new Vector3(0.75f, 0f, 0f), lift, width, color, point.y);
+        AddGroundLine(lines, point + new Vector3(0f, 0f, -0.75f), point + new Vector3(0f, 0f, 0.75f), lift, width, color, point.y);
+
+        float ground = TerrainHeights.GroundAt(point.x, point.z, point.y);
+        Vector3 bottom = new(point.x, Mathf.Min(ground, point.y), point.z);
+        Vector3 top = new(point.x, Mathf.Max(ground, point.y) + 1f, point.z);
+        lines.AddPost(bottom, top, width, _previewColor.Value);
+
+        _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// The ramp's surface (it's flat, so one quad), its edges at the new heights with posts at the corners, its
+    /// outline on the ground in gold, and the outer edges of the blend bands on the ground.
+    /// </summary>
+    private void BuildRamp(RampShape ramp, float fallbackHeight)
+    {
+        MeshBuilder fill = new();
+        MeshBuilder lines = new();
+        float lift = Lift + 0.03f;
+        float width = _areaLineWidth.Value;
+        Color preview = _previewColor.Value;
+        Color fillColor = preview;
+        fillColor.a = _fillAlpha.Value;
+
+        Vector3[] core = ramp.Corners(0f);
+        if (ramp.Length > 0.01f)
+        {
+            Vector3 up = Vector3.up * lift;
+            fill.AddQuad(core[0] + up, core[1] + up, core[2] + up, core[3] + up, fillColor);
+        }
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector3 a = core[i];
+            Vector3 b = core[(i + 1) % 4];
+            lines.AddRibbon([a + (Vector3.up * lift), b + (Vector3.up * lift)], [preview, preview], width);
+            AddGroundLine(lines, a, b, lift, width, _areaColor.Value, fallbackHeight);
+
+            float ground = TerrainHeights.GroundAt(a.x, a.z, a.y);
+            if (Mathf.Abs(ground - a.y) > 0.05f)
+            {
+                lines.AddPost(new Vector3(a.x, ground, a.z), a, width, preview);
+            }
+        }
+
+        if (ramp.Blend > 0f)
+        {
+            Color blend = _blendColor.Value;
+            AddBlendBand(fill, ramp, 1f, lift, blend, fallbackHeight);
+            AddBlendBand(fill, ramp, -1f, lift, blend, fallbackHeight);
+            Vector3[] outer = ramp.Corners(ramp.Blend);
+            AddGroundLine(lines, outer[3], outer[0], lift, width * 0.7f, blend, fallbackHeight);
+            AddGroundLine(lines, outer[1], outer[2], lift, width * 0.7f, blend, fallbackHeight);
+        }
+
+        _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// The blend band on one side of the ramp (`side` +1 = left, -1 = right), drawn at the heights it will have:
+    /// eased from the ramp's edge down or up to the ground. It fades out towards the ground, as the blend does.
+    /// </summary>
+    private static void AddBlendBand(MeshBuilder mesh, RampShape ramp, float side, float lift, Color color, float fallbackHeight)
+    {
+        const int across = 4;
+        int along = Mathf.Max(1, Mathf.CeilToInt(ramp.Length));
+        float half = ramp.Width / 2f;
+        float maxAlpha = Mathf.Clamp01(_fillAlpha.Value * 2f);
+        Vector3[,] points = new Vector3[along + 1, across + 1];
+        Color[,] colors = new Color[along + 1, across + 1];
+
+        for (int i = 0; i <= along; i++)
+        {
+            float t = i / (float)along;
+            Vector3 centre = Vector3.Lerp(ramp.Start, ramp.End, t);
+            for (int j = 0; j <= across; j++)
+            {
+                float distance = half + (ramp.Blend * j / across);
+                Vector3 point = centre + (ramp.Across * side * distance);
+                float weight = ramp.WeightAt(point.x, point.z, out float height);
+                float ground = TerrainHeights.GroundAt(point.x, point.z, fallbackHeight);
+                point.y = Mathf.Lerp(ground, height, weight) + lift;
+                points[i, j] = point;
+                colors[i, j] = new Color(color.r, color.g, color.b, maxAlpha * weight);
+            }
+        }
+
+        for (int i = 0; i < along; i++)
+        {
+            for (int j = 0; j < across; j++)
+            {
+                mesh.AddQuad(points[i, j], points[i + 1, j], points[i + 1, j + 1], points[i, j + 1],
+                    colors[i, j], colors[i + 1, j], colors[i + 1, j + 1], colors[i, j + 1]);
+            }
+        }
+    }
+
+    /// <summary>
+    /// A ribbon on the ground from a to b, sampled every half metre so it follows the terrain.
+    /// </summary>
+    private static void AddGroundLine(MeshBuilder mesh, Vector3 a, Vector3 b, float lift, float width, Color color, float fallbackHeight)
+    {
+        Vector3 flat = b - a;
+        flat.y = 0f;
+        int segments = Mathf.Max(1, Mathf.CeilToInt(flat.magnitude / 0.5f));
+        List<Vector3> points = [];
+        List<Color> colors = [];
+        for (int k = 0; k <= segments; k++)
+        {
+            Vector3 point = Vector3.Lerp(a, b, k / (float)segments);
+            point.y = TerrainHeights.GroundAt(point.x, point.z, fallbackHeight) + lift;
+            points.Add(point);
+            colors.Add(color);
+        }
+
+        mesh.AddRibbon(points, colors, width);
+    }
+
     private static void AddOutline(MeshBuilder mesh, Area area, System.Func<int, int, float> height, float width, Color color)
     {
         // Each side is extended by half the width so the corners close.
@@ -406,16 +568,20 @@ internal sealed class GridOverlay
 
         public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color)
         {
+            AddQuad(a, b, c, d, color, color, color, color);
+        }
+
+        public void AddQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color colorA, Color colorB, Color colorC, Color colorD)
+        {
             int start = Vertices.Count;
             Vertices.Add(a);
             Vertices.Add(b);
             Vertices.Add(c);
             Vertices.Add(d);
-            for (int k = 0; k < 4; k++)
-            {
-                Colors.Add(color);
-            }
-
+            Colors.Add(colorA);
+            Colors.Add(colorB);
+            Colors.Add(colorC);
+            Colors.Add(colorD);
             AddTriangles(start, start + 1, start + 2, start + 3);
         }
 

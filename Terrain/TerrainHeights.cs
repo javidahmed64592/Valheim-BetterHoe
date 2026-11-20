@@ -40,6 +40,16 @@ internal static class TerrainHeights
     }
 
     /// <summary>
+    /// The ground height anywhere, from the terrain's collider, or `fallback` off the terrain.
+    /// </summary>
+    public static float GroundAt(float x, float z, float fallback)
+    {
+        return ZoneSystem.instance != null && ZoneSystem.instance.GetGroundHeight(new Vector3(x, 0f, z), out float height)
+            ? height
+            : fallback;
+    }
+
+    /// <summary>
     /// The world height of the vertex at whole-metre (x, z), or `fallback` off the terrain.
     /// </summary>
     public static float Get(int x, int z, float fallback)

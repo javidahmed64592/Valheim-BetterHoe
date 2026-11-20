@@ -91,6 +91,130 @@ internal static class IconMaker
         return ToSprite(texture, source, "_reset");
     }
 
+    /// <summary>
+    /// A wedge of Raise ground's soil with its arrow running up the slope, for the Ramp tool.
+    /// </summary>
+    public static Sprite Ramp(Sprite source)
+    {
+        Texture2D texture = Copy(source, flip: false);
+        int width = texture.width;
+        int height = texture.height;
+        Color[] pixels = texture.GetPixels();
+
+        // The mound is in the lower part of the icon and the arrow above it (texture rows count from the bottom).
+        int split = Mathf.RoundToInt(height * 0.45f);
+        Color soil = Average(pixels, width, 0, split, new Color(0.45f, 0.35f, 0.15f));
+        Color arrow = Average(pixels, width, split, height, new Color(0.85f, 0.75f, 0.55f));
+        Color edge = Color.Lerp(soil, Color.black, 0.35f);
+        edge.a = 1f;
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = Color.clear;
+        }
+
+        Vector2 low = new(width * 0.1f, height * 0.18f);
+        Vector2 foot = new(width * 0.9f, height * 0.18f);
+        Vector2 high = new(width * 0.9f, height * 0.58f);
+        float outline = width * 0.03f;
+        Fill(pixels, width, height, p => InTriangle(p, low, foot, high), edge);
+        Fill(pixels, width, height, p => InTriangle(p, low, foot, high) && Inset(p, low, foot, high, outline), soil);
+
+        // The arrow runs parallel to the slope, above it.
+        Vector2 slope = (high - low).normalized;
+        Vector2 normal = new(-slope.y, slope.x);
+        Vector2 from = low + (slope * width * 0.22f) + (normal * height * 0.14f);
+        Vector2 to = low + (slope * width * 0.72f) + (normal * height * 0.14f);
+        float shaft = width * 0.045f;
+        float head = width * 0.1f;
+        Vector2 tip = to + (slope * head);
+        Fill(pixels, width, height, p => NearSegment(p, from, to, shaft / 2f)
+            || InTriangle(p, tip, to + (normal * head * 0.75f), to - (normal * head * 0.75f)), arrow);
+
+        texture.SetPixels(pixels);
+        texture.Apply();
+        return ToSprite(texture, source, "_ramp");
+    }
+
+    private static Color Average(Color[] pixels, int width, int fromRow, int toRow, Color fallback)
+    {
+        Color sum = Color.clear;
+        float weight = 0f;
+        for (int y = fromRow; y < toRow; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Color pixel = pixels[(y * width) + x];
+                if (pixel.a > 0.5f)
+                {
+                    sum += pixel * pixel.a;
+                    weight += pixel.a;
+                }
+            }
+        }
+
+        Color result = weight > 0f ? sum / weight : fallback;
+        result.a = 1f;
+        return result;
+    }
+
+    /// <summary>
+    /// Paints `color` over the pixels inside the shape, with 4x4 supersampling for smooth edges.
+    /// </summary>
+    private static void Fill(Color[] pixels, int width, int height, System.Func<Vector2, bool> inside, Color color)
+    {
+        const int samples = 4;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int hits = 0;
+                for (int sy = 0; sy < samples; sy++)
+                {
+                    for (int sx = 0; sx < samples; sx++)
+                    {
+                        if (inside(new Vector2(x + ((sx + 0.5f) / samples), y + ((sy + 0.5f) / samples))))
+                        {
+                            hits++;
+                        }
+                    }
+                }
+
+                if (hits > 0)
+                {
+                    float coverage = hits / (float)(samples * samples);
+                    Color under = pixels[(y * width) + x];
+                    Color over = color;
+                    over.a = 1f;
+                    Color blended = Color.Lerp(under, over, coverage);
+                    blended.a = Mathf.Max(under.a, coverage);
+                    pixels[(y * width) + x] = blended;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when p is at least `margin` inside every edge of the triangle.
+    /// </summary>
+    private static bool Inset(Vector2 p, Vector2 a, Vector2 b, Vector2 c, float margin)
+    {
+        return DistanceToLine(p, a, b) >= margin && DistanceToLine(p, b, c) >= margin && DistanceToLine(p, c, a) >= margin;
+    }
+
+    private static float DistanceToLine(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 direction = (b - a).normalized;
+        Vector2 offset = p - a;
+        return Mathf.Abs((offset.x * direction.y) - (offset.y * direction.x));
+    }
+
+    private static bool NearSegment(Vector2 p, Vector2 a, Vector2 b, float radius)
+    {
+        Vector2 ab = b - a;
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab.sqrMagnitude);
+        return (p - (a + (ab * t))).magnitude <= radius;
+    }
+
     private static bool InArc(Vector2 p, Vector2 centre, float radius, float thickness, float fromDegrees, float toDegrees)
     {
         Vector2 offset = p - centre;

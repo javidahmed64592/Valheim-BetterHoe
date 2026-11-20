@@ -13,11 +13,11 @@ namespace BetterHoe.Patches;
 internal static class Player_PieceRayTest_Patch
 {
     [HarmonyPostfix]
-    private static void Postfix(Player __instance, bool __result, ref Vector3 point)
+    private static void Postfix(Player __instance, bool __result, ref Vector3 point, ref Piece piece, ref Heightmap heightmap)
     {
         if (__result && AreaTool.ActiveTool(__instance) != null)
         {
-            AreaTool.SetAim(point);
+            AreaTool.SetAim(point, onTerrain: heightmap != null && piece == null);
         }
     }
 }

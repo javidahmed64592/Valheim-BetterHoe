@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 using BepInEx.Configuration;
@@ -15,20 +16,23 @@ namespace BetterHoe.Terrain;
 /// <summary>
 /// The hoe's area tools. While a terrain piece is selected on the hoe, the aim point picks a rectangle of
 /// terrain vertices sized by Width x Length, and placing the piece flattens, raises, lowers or paints exactly
-/// that rectangle instead of vanilla's round brush. Vanilla still charges the stamina, durability and
-/// materials of one placement per click.
+/// that rectangle instead of vanilla's round brush. The ramp tool instead takes two clicks, a start and an end,
+/// and builds a constant slope between them, Width metres wide. Vanilla still charges the stamina, durability
+/// and materials of one placement per click (not for setting a ramp's start).
 /// </summary>
 internal static class AreaTool
 {
     private const string HoeTableName = "_HoePieceTable";
 
     private static readonly float[] Steps = [0.1f, 0.25f, 0.5f, 1f, 2f];
+    private static readonly float[] Blends = [0f, 1f, 2f, 3f, 4f, 6f];
 
     private static ConfigEntry<bool> _gridEnabled;
     private static ConfigEntry<int> _width;
     private static ConfigEntry<int> _length;
     private static ConfigEntry<float> _step;
     private static ConfigEntry<int> _maxSize;
+    private static ConfigEntry<float> _blend;
 
     private static readonly GridOverlay Overlay = new();
     private static readonly Readout Readout = new();
@@ -39,7 +43,19 @@ internal static class AreaTool
     private static int _aimFrame = -10;
     private static Vector3 _aimPoint;
 
+    /// <summary>
+    /// True when the aim is on bare terrain rather than on a piece.
+    /// </summary>
+    private static bool _aimOnTerrain;
+
     private static float? _lockedHeight;
+
+    /// <summary>
+    /// The ramp's first point, once set; cleared when it's built, cancelled or another tool is picked.
+    /// </summary>
+    private static Vector3? _rampStart;
+
+    private static readonly List<(int x, int z, float height, float weight)> RampVertices = [];
 
     /// <summary>
     /// Cached count of vertices that would hit vanilla's 8 m limit, for the readout.
@@ -62,6 +78,7 @@ internal static class AreaTool
     private static int Width => Mathf.Clamp(_width.Value, 1, MaxSize);
     private static int Length => Mathf.Clamp(_length.Value, 1, MaxSize);
     private static float Step => _step.Value;
+    private static float Blend => _blend.Value;
 
     public static void BindConfig(ConfigFile config)
     {
@@ -82,6 +99,16 @@ internal static class AreaTool
             new ConfigDescription("Largest width or length in metres of the area. (Synced with server)",
                 new AcceptableValueRange<int>(1, 64),
                 new ConfigurationManagerAttributes { IsAdminOnly = true }));
+
+        _blend = config.Bind("Ramp", "Edge Blend", 2f,
+            new ConfigDescription("Metres on each side of a ramp where the ground eases into the slope (0, 1, 2, 3, 4 or 6). " +
+                "Change it in game with Alt+Scroll while the Ramp tool is selected.",
+                new AcceptableValueRange<float>(Blends[0], Blends[Blends.Length - 1])));
+
+        if (Array.IndexOf(Blends, _blend.Value) < 0)
+        {
+            _blend.Value = 2f;
+        }
 
         if (Array.IndexOf(Steps, _step.Value) < 0)
         {
@@ -139,6 +166,9 @@ internal static class AreaTool
             case HoePieces.LowerName:
                 own = true;
                 return HoeTool.Lower;
+            case HoePieces.RampName:
+                own = true;
+                return HoeTool.Ramp;
             case HoePieces.ResetHeightName:
                 own = true;
                 return HoeTool.ResetHeight;
@@ -199,10 +229,13 @@ internal static class AreaTool
 
     internal static bool HeightLocked => _lockedHeight.HasValue;
 
-    internal static void SetAim(Vector3 point)
+    internal static bool RampStarted => _rampStart.HasValue;
+
+    internal static void SetAim(Vector3 point, bool onTerrain)
     {
         _aimFrame = Time.frameCount;
         _aimPoint = point;
+        _aimOnTerrain = onTerrain;
     }
 
     private static bool HasAim => Time.frameCount - _aimFrame <= 2;
@@ -215,6 +248,7 @@ internal static class AreaTool
         if (player == null)
         {
             _lockedHeight = null;
+            _rampStart = null;
             Hide();
             return;
         }
@@ -227,6 +261,11 @@ internal static class AreaTool
         }
 
         HoeTool tool = ToolFor(piece, out bool own);
+        if (tool != HoeTool.Ramp)
+        {
+            _rampStart = null;
+        }
+
         if (tool != null && !own && Keys.Ctrl && Input.GetMouseButtonDown(1))
         {
             _gridEnabled.Value = !_gridEnabled.Value;
@@ -248,10 +287,166 @@ internal static class AreaTool
             return;
         }
 
+        if (tool == HoeTool.Ramp)
+        {
+            ShowRamp();
+            return;
+        }
+
         Area area = CurrentArea();
         float value = ToolValue(tool);
         Overlay.Show(_aimPoint, area, tool, value);
         Readout.Show(ReadoutText(tool, area, value));
+    }
+
+    // ----- Ramp -----
+
+    /// <summary>
+    /// The vertex under the aim, at the height a ramp end placed there gets: the locked height, the vertex's
+    /// own height on bare ground (so the ramp meets it without a step), or the aimed height on a piece (the top
+    /// of a floor).
+    /// </summary>
+    private static Vector3 RampPoint()
+    {
+        int x = Mathf.RoundToInt(_aimPoint.x);
+        int z = Mathf.RoundToInt(_aimPoint.z);
+        float height = _lockedHeight ?? (_aimOnTerrain ? TerrainHeights.Get(x, z, _aimPoint.y) : _aimPoint.y);
+        return new Vector3(x, height, z);
+    }
+
+    private static RampShape CurrentRamp()
+    {
+        return new RampShape(_rampStart.Value, RampPoint(), Width, Blend);
+    }
+
+    private static void ShowRamp()
+    {
+        if (!_rampStart.HasValue)
+        {
+            Vector3 point = RampPoint();
+            Overlay.ShowRampStart(_aimPoint, point);
+            Readout.Show(Localization.instance.Localize("$betterhoe_readout_ramp_start",
+                Width.ToString(CultureInfo.InvariantCulture), Metres(Blend))
+                + "\n" + PointHeightText("$betterhoe_readout_ramp_start_height", point.y));
+            return;
+        }
+
+        RampShape ramp = CurrentRamp();
+        Overlay.ShowRamp(_aimPoint, ramp);
+        string text = Localization.instance.Localize("$betterhoe_readout_ramp",
+            Width.ToString(CultureInfo.InvariantCulture), Metres(ramp.Length), Metres(Blend));
+        text += "\n" + PointHeightText("$betterhoe_readout_ramp_end_height", ramp.End.y);
+        text += "\n" + Localization.instance.Localize("$betterhoe_readout_ramp_slope",
+            (ramp.Rise >= 0f ? "+" : "") + Metres(ramp.Rise), ramp.SlopeDegrees.ToString("0.#", CultureInfo.InvariantCulture));
+        if (!ramp.IsValid)
+        {
+            text += "\n<color=#ff8060>" + Localization.instance.Localize("$betterhoe_ramp_too_short") + "</color>";
+        }
+        else if (RampAtLimit(ramp))
+        {
+            text += "\n<color=#ff8060>" + Localization.instance.Localize("$betterhoe_readout_limit") + "</color>";
+        }
+
+        Readout.Show(text);
+    }
+
+    /// <summary>
+    /// "Start height 31.2 m", with "(locked)" when the height lock sets it.
+    /// </summary>
+    private static string PointHeightText(string token, float height)
+    {
+        string text = Localization.instance.Localize(token, Metres(height));
+        return _lockedHeight.HasValue ? text + " " + Localization.instance.Localize("$betterhoe_readout_locked") : text;
+    }
+
+    private static RampShape _rampLimitKey;
+    private static bool _rampLimit;
+    private static int _rampLimitFrame = -100;
+
+    private static bool RampAtLimit(RampShape ramp)
+    {
+        if (ramp.Equals(_rampLimitKey) && Time.frameCount - _rampLimitFrame < LimitRefreshFrames)
+        {
+            return _rampLimit;
+        }
+
+        _rampLimitKey = ramp;
+        _rampLimitFrame = Time.frameCount;
+        _rampLimit = RampExceedsLimit(ramp);
+        return _rampLimit;
+    }
+
+    private static bool RampExceedsLimit(RampShape ramp)
+    {
+        ramp.Vertices(RampVertices);
+        foreach ((int x, int z, float height, float weight) in RampVertices)
+        {
+            if (TerrainHeights.TryGet(x, z, out float current, out float natural)
+                && Mathf.Abs(Mathf.Lerp(current, height, weight) - natural) > TerrainRpc.MaxLevelDelta + 0.01f)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// First click: remember the start (free). Second click: build the ramp.
+    /// </summary>
+    private static bool TryPlaceRamp(Player player, Piece piece, out bool placed)
+    {
+        placed = false;
+        Vector3 point = RampPoint();
+        if (!_rampStart.HasValue)
+        {
+            if (!TerrainHeights.TryGet((int)point.x, (int)point.z, out _, out _))
+            {
+                player.Message(MessageHud.MessageType.Center, "$msg_invalidplacement");
+                return true;
+            }
+
+            _rampStart = point;
+            player.Message(MessageHud.MessageType.TopLeft, "$betterhoe_ramp_started");
+            return true;
+        }
+
+        RampShape ramp = CurrentRamp();
+        if (!ramp.IsValid)
+        {
+            player.Message(MessageHud.MessageType.Center, "$betterhoe_ramp_too_short");
+            return true;
+        }
+
+        ramp.Vertices(RampVertices);
+        List<(int x, int z)> points = [];
+        foreach ((int x, int z, float _, float _) in RampVertices)
+        {
+            points.Add((x, z));
+        }
+
+        if (!CheckAccess(player, points))
+        {
+            return true;
+        }
+
+        TerrainEdits edits = new();
+        foreach ((int x, int z, float height, float weight) in RampVertices)
+        {
+            edits.SetHeight(x, z, height, weight);
+        }
+
+        edits.Paint(ramp.Corners(0f), HoeTool.Ramp.PaintColor);
+        if (!edits.Send(ramp.Center, ramp.Radius))
+        {
+            player.Message(MessageHud.MessageType.Center, "$msg_invalidplacement");
+            return true;
+        }
+
+        PlayEffects(player, piece, ramp.Center);
+        _rampStart = null;
+        placed = true;
+        return true;
     }
 
     private static void Hide()
@@ -290,9 +485,21 @@ internal static class AreaTool
                 int index = Mathf.Clamp(Array.IndexOf(Steps, _step.Value) + direction, 0, Steps.Length - 1);
                 _step.Value = Steps[index];
             }
+            else if (Keys.Alt && tool.Shape == ShapeMode.Ramp)
+            {
+                int index = Mathf.Clamp(Array.IndexOf(Blends, _blend.Value) + direction, 0, Blends.Length - 1);
+                _blend.Value = Blends[index];
+            }
         }
 
-        if (tool.Shape == ShapeMode.Flatten && Input.GetMouseButtonDown(2) && !Keys.AnyModifier && HasAim)
+        // Right-click drops a ramp's start (the build menu stays shut, see Player_UpdateBuildGuiInput_Patch).
+        if (_rampStart.HasValue && Input.GetMouseButtonDown(1) && !Keys.AnyModifier)
+        {
+            _rampStart = null;
+            player.Message(MessageHud.MessageType.TopLeft, "$betterhoe_ramp_cancelled");
+        }
+
+        if ((tool.Shape is ShapeMode.Flatten or ShapeMode.Ramp) && Input.GetMouseButtonDown(2) && !Keys.AnyModifier && HasAim)
         {
             if (_lockedHeight.HasValue)
             {
@@ -353,8 +560,13 @@ internal static class AreaTool
             return true;
         }
 
+        if (tool == HoeTool.Ramp)
+        {
+            return TryPlaceRamp(player, piece, out placed);
+        }
+
         Area area = CurrentArea();
-        if (!CheckAccess(player, area))
+        if (!CheckAccess(player, AreaVertices(area)))
         {
             return true;
         }
@@ -408,36 +620,47 @@ internal static class AreaTool
         return edits;
     }
 
-    /// <summary>
-    /// Vanilla only checks the ghost's position; the area can reach much further, so every vertex is checked
-    /// against wards and no-build locations.
-    /// </summary>
-    private static bool CheckAccess(Player player, Area area)
+    private static List<(int x, int z)> AreaVertices(Area area)
     {
-        bool onTerrain = false;
+        List<(int x, int z)> points = [];
         for (int x = area.MinX; x <= area.MaxX; x++)
         {
             for (int z = area.MinZ; z <= area.MaxZ; z++)
             {
-                if (!TerrainHeights.TryGet(x, z, out float height, out _))
-                {
-                    continue;
-                }
+                points.Add((x, z));
+            }
+        }
 
-                onTerrain = true;
-                Vector3 point = new(x, height, z);
-                if (Location.IsInsideNoBuildLocation(point))
-                {
-                    player.Message(MessageHud.MessageType.Center, "$msg_nobuildzone");
-                    return false;
-                }
+        return points;
+    }
 
-                if (!PrivateArea.CheckAccess(point, 0f, flash: false))
-                {
-                    _ = PrivateArea.CheckAccess(point, 0f, flash: true);
-                    player.Message(MessageHud.MessageType.Center, "$msg_privatezone");
-                    return false;
-                }
+    /// <summary>
+    /// Vanilla only checks the ghost's position; the area can reach much further, so every vertex is checked
+    /// against wards and no-build locations.
+    /// </summary>
+    private static bool CheckAccess(Player player, List<(int x, int z)> vertices)
+    {
+        bool onTerrain = false;
+        foreach ((int x, int z) in vertices)
+        {
+            if (!TerrainHeights.TryGet(x, z, out float height, out _))
+            {
+                continue;
+            }
+
+            onTerrain = true;
+            Vector3 point = new(x, height, z);
+            if (Location.IsInsideNoBuildLocation(point))
+            {
+                player.Message(MessageHud.MessageType.Center, "$msg_nobuildzone");
+                return false;
+            }
+
+            if (!PrivateArea.CheckAccess(point, 0f, flash: false))
+            {
+                _ = PrivateArea.CheckAccess(point, 0f, flash: true);
+                player.Message(MessageHud.MessageType.Center, "$msg_privatezone");
+                return false;
             }
         }
 

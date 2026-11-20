@@ -8,6 +8,7 @@ Shape terrain on a grid with the hoe: level, raise, lower and paint exact rectan
 
 - **Terrain grid**: A grid is drawn on the ground at the terrain's 1 m spacing, matching [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/)'s build grid. The hoe changes exactly the rectangle marked on it.
 - **Level ground**: Flatten the whole area to the height you aim at, or lock a height to level several areas to the same height.
+- **Ramp**: Click a start and an end to build a smooth, constant slope between them, with sides that blend into the ground.
 - **Raise and lower ground**: Lift or sink the whole area by a fixed step. Lower ground is a new hoe tool.
 - **Reset height**: A new hoe tool that undoes every height change in the area, back to the natural ground.
 - **Paint**: Pathen, Paved road and the new Reset paint tool paint exactly the area. Reset paint removes paths and paving so the grass grows back.
@@ -30,7 +31,23 @@ While one of the hoe's terrain tools is selected, the area it changes is outline
 - Each use costs the same stamina and durability as one vanilla use, whatever the area's size. The largest area is set by the server.
 - Like vanilla, ground can't be moved more than 8 m above or below its natural height. The text under the crosshair warns you when part of the area would stop there.
 - Wards and no-build areas are checked across the whole area, not just where you aim.
-- With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Lower ground, Reset height and Reset paint always use the grid.
+- With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Ramp, Lower ground, Reset height and Reset paint always use the grid.
+
+## Ramp
+
+Select **Ramp** in the hoe menu, click where the ramp starts, then click where it ends. Until the second click, a preview shows the ramp's surface in blue, its outline on the ground in gold, and the edge blend in violet, fading out towards the ground. The text under the crosshair shows the ramp's length, end height, rise and slope.
+
+| Key             | Action                                                              |
+| --------------- | ------------------------------------------------------------------- |
+| `Left-Click`    | Set the start, then build the ramp to the point you're aiming at.   |
+| `Right-Click`   | Cancel the start.                                                   |
+| `Ctrl+Scroll`   | Change the ramp's width.                                            |
+| `Alt+Scroll`    | Change how far the sides blend into the ground around the ramp.     |
+| `Middle-Click`  | Lock or unlock the height you are aiming at. Each end uses the lock if it's on when you click. |
+
+- Each end takes the height of the ground at that point, or the top of a floor piece you aim at, or the locked height.
+- The ramp can run in any direction. On the 1 m terrain grid a diagonal ramp's sides are slightly stepped; the blend smooths them.
+- Setting the start is free; building the ramp costs one use.
 
 ## Configuration
 
@@ -45,7 +62,7 @@ Settings marked "(Synced with server)" use the server's values.
 
 ## Uninstalling
 
-The terrain changes are ordinary vanilla terrain data, so they stay in the world after the mod is removed. Lower ground, Reset height and Reset paint disappear from the hoe, and Raise ground and Paved road need their vanilla materials and stations again.
+The terrain changes are ordinary vanilla terrain data, so they stay in the world after the mod is removed. Ramp, Lower ground, Reset height and Reset paint disappear from the hoe, and Raise ground and Paved road need their vanilla materials and stations again.
 
 ## License
 
