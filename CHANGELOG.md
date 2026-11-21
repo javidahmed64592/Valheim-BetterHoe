@@ -2,19 +2,15 @@
 
 ## 0.1.0
 
-- Press `N` to take out a hoe without having one in your inventory, and again to put it away, like BetterHammer's `B` for the hammer. It never wears out, and the key can be rebound in the controls menu.
-- The hoe works on a grid. A grid like BetterHammer's build grid is drawn on the ground at the terrain's own 1 m spacing, and the hoe changes exactly the rectangle marked on it instead of a round patch.
-- Change the area's width (west to east) with `Ctrl+Scroll` and its length (south to north) with `Shift+Scroll`.
-- Level ground flattens the whole area to the height you aim at. Middle-click locks that height, so neighbouring areas can be levelled to exactly the same height.
-- The new Ramp tool builds a smooth slope with a constant angle. Click where it starts and where it ends, and set its width with `Ctrl+Scroll`. Its sides blend into the ground around them over a distance you set with `Alt+Scroll`. Each end takes the height you aim at, or the locked height, so a ramp can lead up to a floor. Right-click cancels a start you've set. The preview shows the ramp in blue and the edge blend in violet, and the length, end height, rise and slope are shown while you aim.
-- Raise ground lifts the area by a fixed step, and the new Lower ground tool sinks it. Change the step with `Alt+Scroll`.
-- The new Reset height tool undoes every height change in the area, back to the natural ground.
-- Pathen, Paved road and the new Reset paint tool paint exactly the area. Reset paint removes paths and paving so the grass grows back.
-- A preview shows the result before you click: the outline of the area on the ground, and the surface it will have.
-- Text under the crosshair shows the tool, the area size and the height or step, and warns when ground would stop at vanilla's 8 m limit.
-- Shaping the ground is free: Raise ground no longer costs stone. Painting costs what vanilla charges (one stone for Paved road). No hoe tool needs a workbench or stonecutter nearby.
-- Each use costs the same stamina and durability as one vanilla use, whatever the area's size.
-- The key hints at the bottom of the screen fit the hoe: they say what each key does with the selected tool ("Level area", "Hoe menu", "Lock height"), list the area controls, and leave out the ones that do nothing with a hoe (remove, copy, snapping, and rotating terrain tools).
-- The hoe menu has a "Terrain Tools" title where the tabs would be, and no longer shows the Q and E tab keys, as it has no tabs. The cultivator menu loses the tab keys and the empty tab line too.
-- Undo your last terrain change with `Ctrl+Z` and redo it with `Ctrl+Y` while the hoe is out. This covers every change made on the grid, including ramps. Undo and redo are free and exact, and the history holds 50 changes until you log out.
-- Turn the grid off for the vanilla tools with `Ctrl+Right-Click` to use vanilla's round brushes again.
+- First release.
+- The hoe works on a 1 m terrain grid, like BetterHammer's build grid, and changes exactly the marked area instead of a round patch. Set its width with `Ctrl+Scroll` and its length with `Shift+Scroll`.
+- Level ground flattens the area to the aimed height; middle-click locks that height.
+- Raise ground and the new Lower ground move the area by a step you set with `Alt+Scroll`.
+- New Ramp tool: click a start and an end for a smooth slope with blended sides.
+- New Reset height and Reset paint tools return the ground to its natural height or grass.
+- A preview and readout show the result, size, height and slope before you click.
+- Undo and redo terrain changes with `Ctrl+Z` and `Ctrl+Y`.
+- Press `N` to take out a hoe without having one.
+- Shaping the ground is free, painting costs what vanilla charges, and no tool needs a workbench.
+- Tidier key hints and hoe menu.
+- `Ctrl+Right-Click` switches the vanilla tools back to vanilla's round brushes.
