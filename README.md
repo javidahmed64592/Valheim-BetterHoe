@@ -7,7 +7,7 @@
 Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact areas, build smooth ramps, and take out a hoe with one key.
 
 - **Equip a hoe**: Press `N` to take out a hoe without having one in your inventory, and again to put it away.
-- **Terrain grid**: A grid is drawn on the ground at the terrain's 1 m spacing, matching [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/)'s build grid. The hoe changes exactly the rectangle marked on it.
+- **Terrain grid**: A grid is drawn on the ground at the terrain's 1 m spacing, matching [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/)'s build grid.
 - **Level ground**: Flatten the whole area to the height you aim at, or lock a height to level several areas to the same height.
 - **Ramp**: Click a start and an end to build a smooth, constant slope between them, with sides that blend into the ground.
 - **Raise and lower ground**: Lift or sink the whole area by a fixed step. Lower ground is a new hoe tool.
@@ -16,11 +16,16 @@ Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact
 - **Costs**: Shaping the ground is free and painting costs what vanilla charges, with no workbench or stonecutter needed.
 - **Preview**: See the area's outline and the surface it will have before you click, with its size and height under the crosshair.
 - **Undo and redo**: Undo terrain changes with `Ctrl+Z` and redo them with `Ctrl+Y`.
-- **Key hints**: The hints at the bottom of the screen say what each key does with the hoe, and the ones that do nothing with a hoe are left out.
+
+![Hoe Menu](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/hoe_menu.png)
 
 ## Terrain Grid
 
-While one of the hoe's terrain tools is selected, the area it changes is outlined in gold on the ground. Level, Raise and Lower ground and Reset height also show the new surface in blue.
+While one of the hoe's terrain tools is selected, the area it changes is outlined in gold on the ground.
+Level, Raise and Lower ground and Reset height also show the new surface in blue.
+Like vanilla, ground can't be moved more than 8 m above or below its natural height.
+
+With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Ramp, Lower ground, Reset height and Reset paint always use the grid.
 
 | Key                | Action                                                        |
 | ------------------ | ------------------------------------------------------------- |
@@ -30,10 +35,7 @@ While one of the hoe's terrain tools is selected, the area it changes is outline
 | `Middle-Click`     | Level ground: lock or unlock the height you are aiming at.    |
 | `Ctrl+Right-Click` | Turn the grid on or off for the vanilla tools.                |
 
-- Each use costs the same stamina and durability as one vanilla use, whatever the area's size. The largest area is set by the server.
-- Like vanilla, ground can't be moved more than 8 m above or below its natural height. The text under the crosshair warns you when part of the area would stop there.
-- Wards and no-build areas are checked across the whole area, not just where you aim.
-- With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Ramp, Lower ground, Reset height and Reset paint always use the grid.
+![Terrain Grid](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/terrain_grid.png)
 
 ## Ramp
 
@@ -47,9 +49,7 @@ Select **Ramp** in the hoe menu, click where the ramp starts, then click where i
 | `Alt+Scroll`    | Change how far the sides blend into the ground around the ramp.     |
 | `Middle-Click`  | Lock or unlock the height you are aiming at. Each end uses the lock if it's on when you click. |
 
-- Each end takes the height of the ground at that point, or the top of a floor piece you aim at, or the locked height.
-- The ramp can run in any direction. On the 1 m terrain grid a diagonal ramp's sides are slightly stepped; the blend smooths them.
-- Setting the start is free; building the ramp costs one use.
+![Ramp Ghost with no Blend](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/ramp_ghost_no_blend.png)
 
 ## Undo and Redo
 
@@ -63,9 +63,11 @@ Select **Ramp** in the hoe menu, click where the ramp starts, then click where i
 - If the ground is too far away to be loaded, or is now behind someone else's ward, nothing happens.
 - The history holds 50 changes by default and lasts until you log out. Making a new change clears what you could redo.
 
-## Equip Hoe
+## Keyhints
 
-Press `N` to take out a hoe, even if you don't have one in your inventory, and press it again to put it away. It never wears out. Rebind the key in the game's controls menu.
+The mod adds on-screen keyhints with all the listed keybinds.
+
+![Keyhints](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/keyhints.png)
 
 ## Configuration
 
