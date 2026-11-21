@@ -232,6 +232,21 @@ internal static class AreaTool
 
     internal static bool RampStarted => _rampStart.HasValue;
 
+    internal static bool BlocksMenu
+    {
+        get
+        {
+            if (field && !Input.GetMouseButton(1))
+            {
+                field = false;
+            }
+
+            return _rampStart.HasValue || field;
+        }
+
+        private set;
+    }
+
     internal static void SetAim(Vector3 point, bool onTerrain)
     {
         _aimFrame = Time.frameCount;
@@ -503,6 +518,7 @@ internal static class AreaTool
         if (_rampStart.HasValue && Input.GetMouseButtonDown(1) && !Keys.AnyModifier)
         {
             _rampStart = null;
+            BlocksMenu = true;
             player.Message(MessageHud.MessageType.TopLeft, "$betterhoe_ramp_cancelled");
         }
 

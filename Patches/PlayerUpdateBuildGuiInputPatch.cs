@@ -14,6 +14,6 @@ internal static class Player_UpdateBuildGuiInput_Patch
     [HarmonyPrefix]
     private static bool Prefix(Player __instance)
     {
-        return (__instance != Player.m_localPlayer || !AreaTool.RampStarted) && (!Keys.Ctrl || !AreaTool.HoeTerrainToolSelected(__instance));
+        return (__instance != Player.m_localPlayer || !AreaTool.BlocksMenu) && (!Keys.Ctrl || !AreaTool.HoeTerrainToolSelected(__instance));
     }
 }
