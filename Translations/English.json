@@ -63,5 +63,13 @@
   "betterhoe_tool_cultivate": "Cultivate",
   "betterhoe_hint_cultivate": "Cultivate ground",
   "betterhoe_piece_cultivate": "Cultivate",
-  "betterhoe_piece_cultivate_description": "Cultivates the ground in the marked area, ready for planting, without changing its height."
+  "betterhoe_piece_cultivate_description": "Cultivates the ground in the marked area, ready for planting, without changing its height.",
+  "betterhoe_readout_region": "$1  marked ground, $3 x $4 m ($2 squares)",
+  "betterhoe_region_cleared": "Marked ground cleared",
+  "betterhoe_region_too_big": "Marked ground can't be wider or longer than $1 m",
+  "betterhoe_hint_mark": "Mark ground",
+  "betterhoe_hint_unmark": "Unmark ground",
+  "betterhoe_hint_clear_region": "Clear marked ground",
+  "betterhoe_hint_restore_region": "Mark last ground again",
+  "betterhoe_region_restored": "Marked the last cleared ground again ($1 squares)"
 }

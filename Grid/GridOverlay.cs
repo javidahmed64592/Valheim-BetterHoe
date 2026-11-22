@@ -34,6 +34,7 @@ internal sealed class GridOverlay
     private static ConfigEntry<Color> _previewColor;
     private static ConfigEntry<float> _fillAlpha;
     private static ConfigEntry<Color> _blendColor;
+    private static ConfigEntry<Color> _regionColor;
 
     private static int Radius => _radius.Value;
     private static float FadeStart => Mathf.Min(_fadeStart.Value, Radius - 0.01f);
@@ -53,6 +54,12 @@ internal sealed class GridOverlay
     /// Frames between redraws while nothing moves, so terrain changes show up.
     /// </summary>
     private const int RefreshFrames = 10;
+
+    /// <summary>
+    /// Frames between redraws of a marked region while nothing changes. It can be much bigger than the area, so
+    /// it's redrawn less often.
+    /// </summary>
+    private const int RegionRefreshFrames = 30;
 
     public static void BindConfig(ConfigFile config)
     {
@@ -97,6 +104,8 @@ internal sealed class GridOverlay
                 new AcceptableValueRange<float>(0f, 1f)));
         _blendColor = config.Bind(section, "Ramp Blend Color", new Color(0.8f, 0.45f, 1f, 0.9f),
             "Colour (including alpha) of a ramp's edge blend: the band beside the ramp where the ground eases into it.");
+        _regionColor = config.Bind(section, "Marked Region Color", new Color(0.25f, 0.9f, 0.75f, 0.9f),
+            "Colour (including alpha) of the outline around ground marked with Alt+Middle-Click.");
     }
 
     private readonly Layer _grid = new("BetterHoe_Grid");
@@ -151,9 +160,20 @@ internal sealed class GridOverlay
         _grid.SetActive(_hasGrid);
     }
 
-    private void ShowArea(object key, System.Action build)
+    /// <summary>
+    /// The marked region with the tool's result previewed over all of it, and the area under the aim (the brush
+    /// that marks and unmarks) on the ground: only the part of it that can be marked, or with none of it, the
+    /// whole brush outlined in red.
+    /// </summary>
+    public void ShowRegion(Vector3 aim, Area brush, Area? allowed, HoeTool tool, float value)
     {
-        bool areaStale = !_hasArea || !key.Equals(_areaKey) || Time.frameCount - _areaFrame >= RefreshFrames;
+        ShowGrid(aim);
+        ShowArea((MarkedRegion.Version, brush, allowed, tool, value), () => BuildRegion(brush, allowed, tool, value, aim.y), RegionRefreshFrames);
+    }
+
+    private void ShowArea(object key, System.Action build, int refreshFrames = RefreshFrames)
+    {
+        bool areaStale = !_hasArea || !key.Equals(_areaKey) || Time.frameCount - _areaFrame >= refreshFrames;
         if (areaStale && _area.Ensure())
         {
             build();
@@ -332,6 +352,158 @@ internal sealed class GridOverlay
         }
 
         _area.Apply(fill, lines);
+    }
+
+    // ----- Marked region -----
+
+    private void BuildRegion(Area fullBrush, Area? allowed, HoeTool tool, float value, float fallbackHeight)
+    {
+        MeshBuilder fill = new();
+        MeshBuilder lines = new();
+        float lift = Lift + 0.02f;
+
+        Dictionary<(int x, int z), (float ground, float natural)> heights = [];
+        foreach ((int x, int z) vertex in MarkedRegion.Vertices())
+        {
+            heights[vertex] = TerrainHeights.TryGet(vertex.x, vertex.z, out float height, out float natural)
+                ? (height, natural)
+                : (fallbackHeight, fallbackHeight);
+        }
+
+        float Ground(int x, int z)
+        {
+            return heights.TryGetValue((x, z), out (float ground, float natural) h) ? h.ground : fallbackHeight;
+        }
+
+        float Preview(int x, int z)
+        {
+            (float ground, float natural) = heights.TryGetValue((x, z), out (float, float) found) ? found : (fallbackHeight, fallbackHeight);
+            return tool.Shape switch
+            {
+                ShapeMode.Flatten => value,
+                ShapeMode.Raise or ShapeMode.Lower => ground + value,
+                ShapeMode.Reset => natural,
+                _ => ground,
+            };
+        }
+
+        Color previewColor = _previewColor.Value;
+        Color fillColor = tool.Shape == ShapeMode.None ? PaintTint(tool) : previewColor;
+        fillColor.a = _fillAlpha.Value;
+        Color regionColor = _regionColor.Value;
+        Color regionFill = regionColor;
+        regionFill.a = _fillAlpha.Value;
+        float width = _areaLineWidth.Value;
+        bool shapes = tool.Shape != ShapeMode.None;
+
+        Area bounds = MarkedRegion.Bounds;
+        for (int x = bounds.MinX; x < bounds.MaxX; x++)
+        {
+            for (int z = bounds.MinZ; z < bounds.MaxZ; z++)
+            {
+                if (!MarkedRegion.Contains(x, z))
+                {
+                    continue;
+                }
+
+                // Teal on the ground, so the marked cells show whatever the tool does; for height changes also
+                // the new surface, which can be under the ground (Lower ground) and then only shows where it's not.
+                fill.AddQuad(
+                    new Vector3(x, Ground(x, z) + lift, z),
+                    new Vector3(x, Ground(x, z + 1) + lift, z + 1),
+                    new Vector3(x + 1, Ground(x + 1, z + 1) + lift, z + 1),
+                    new Vector3(x + 1, Ground(x + 1, z) + lift, z),
+                    regionFill);
+                if (shapes)
+                {
+                    fill.AddQuad(
+                        new Vector3(x, Preview(x, z) + lift, z),
+                        new Vector3(x, Preview(x, z + 1) + lift, z + 1),
+                        new Vector3(x + 1, Preview(x + 1, z + 1) + lift, z + 1),
+                        new Vector3(x + 1, Preview(x + 1, z) + lift, z),
+                        fillColor);
+                }
+
+                // The outline runs along every cell edge with no marked cell on its other side.
+                foreach ((int dx, int dz, int ax, int az, int bx, int bz) in Edges)
+                {
+                    if (MarkedRegion.Contains(x + dx, z + dz))
+                    {
+                        continue;
+                    }
+
+                    (int x, int z) a = (x + ax, z + az);
+                    (int x, int z) b = (x + bx, z + bz);
+                    AddSegment(lines, a, b, Ground(a.x, a.z) + lift + 0.01f, Ground(b.x, b.z) + lift + 0.01f, width, regionColor);
+                    if (shapes)
+                    {
+                        AddSegment(lines, a, b, Preview(a.x, a.z) + lift + 0.01f, Preview(b.x, b.z) + lift + 0.01f, width, previewColor);
+                    }
+                }
+            }
+        }
+
+        // The brush: a faint gold fill and outline on the ground, a little above the region's fill. Past the size
+        // limit only the part that can be marked, or in red with none of it.
+        Area brush = allowed ?? fullBrush;
+        Color brushColor = allowed.HasValue ? _areaColor.Value : OutOfRangeColor;
+        float[,] brushGround = new float[brush.SizeX + 1, brush.SizeZ + 1];
+        for (int i = 0; i <= brush.SizeX; i++)
+        {
+            for (int j = 0; j <= brush.SizeZ; j++)
+            {
+                brushGround[i, j] = TerrainHeights.Get(brush.MinX + i, brush.MinZ + j, fallbackHeight) + lift + 0.015f;
+            }
+        }
+
+        Color brushFill = brushColor;
+        brushFill.a = allowed.HasValue ? _fillAlpha.Value : 0f;
+        for (int i = 0; allowed.HasValue && i < brush.SizeX; i++)
+        {
+            for (int j = 0; j < brush.SizeZ; j++)
+            {
+                int x = brush.MinX + i;
+                int z = brush.MinZ + j;
+                fill.AddQuad(
+                    new Vector3(x, brushGround[i, j], z),
+                    new Vector3(x, brushGround[i, j + 1], z + 1),
+                    new Vector3(x + 1, brushGround[i + 1, j + 1], z + 1),
+                    new Vector3(x + 1, brushGround[i + 1, j], z),
+                    brushFill);
+            }
+        }
+
+        AddOutline(lines, brush, (i, j) => brushGround[i, j], width, brushColor);
+
+        _area.Apply(fill, lines);
+    }
+
+    /// <summary>
+    /// The brush outline when none of it can be marked because the region would be too big.
+    /// </summary>
+    private static readonly Color OutOfRangeColor = new(1f, 0.38f, 0.3f, 0.9f);
+
+    /// <summary>
+    /// A cell's four edges: the neighbour across it, and the edge's two ends, as offsets from the cell's
+    /// south-west vertex.
+    /// </summary>
+    private static readonly (int dx, int dz, int ax, int az, int bx, int bz)[] Edges =
+    [
+        (0, -1, 0, 0, 1, 0),
+        (0, 1, 0, 1, 1, 1),
+        (-1, 0, 0, 0, 0, 1),
+        (1, 0, 1, 0, 1, 1),
+    ];
+
+    /// <summary>
+    /// A straight 1 m ribbon between two vertices, stretched by half its width at each end so corners close.
+    /// </summary>
+    private static void AddSegment(MeshBuilder mesh, (int x, int z) a, (int x, int z) b, float heightA, float heightB, float width, Color color)
+    {
+        Vector3 start = new(a.x, heightA, a.z);
+        Vector3 end = new(b.x, heightB, b.z);
+        Vector3 along = new Vector3(b.x - a.x, 0f, b.z - a.z) * (width / 2f);
+        mesh.AddRibbon([start - along, end + along], [color, color], width);
     }
 
     // ----- Ramp -----

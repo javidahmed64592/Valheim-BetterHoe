@@ -14,6 +14,7 @@ Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact
 - **Reset height**: A new hoe tool that undoes every height change in the area, back to the natural ground.
 - **Paint**: Pathen, Paved road and the new Cultivate and Reset paint tools paint exactly the area. Cultivate prepares the ground for planting without changing its height, and Reset paint removes paths, paving and cultivated ground so the grass grows back.
 - **Costs**: Shaping the ground is free and painting costs what vanilla charges, with no workbench or stonecutter needed.
+- **Mark ground**: Draw out any shape on the grid with `Alt+Middle-Click`, then level, raise, paint or reset all of it in one click.
 - **Preview**: See the area's outline and the surface it will have before you click, with its size and height under the crosshair.
 - **Undo and redo**: Undo terrain changes with `Ctrl+Z` and redo them with `Ctrl+Y`.
 
@@ -36,6 +37,23 @@ With the grid off, Level ground, Raise ground, Pathen and Paved road work like v
 | `Ctrl+Right-Click` | Turn the grid on or off for the vanilla tools.                |
 
 ![Terrain Grid](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/terrain_grid.png)
+
+## Marking Ground
+
+Mark out the ground you want to change, then use a tool on all of it at once.
+The area under the crosshair is the brush: hold `Alt+Middle-Click` and sweep it over the ground to mark it, outlined in teal.
+While ground is marked, every tool except Ramp previews its result over all of it, and one click changes all of it.
+
+| Key                | Action                                                                            |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `Alt+Middle-Click` | Mark the area under the crosshair. Hold to sweep, even while running.             |
+| `Alt+Right-Click`  | Unmark the area under the crosshair. Hold to sweep.                               |
+| `Backspace`        | Clear all marked ground. With nothing marked, mark the last cleared ground again. |
+| `Left-Click`       | Use the selected tool on all marked ground.                                       |
+
+![Selected Region Edit](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/selected_region_edit.png)
+
+![Selected Region Applied](https://github.com/javidahmed64592/Valheim-BetterHoe/raw/main/images/selected_region_applied.png)
 
 ## Ramp
 

@@ -32,6 +32,11 @@ internal static class HoeKeyHints
     private const string UndoKey = "@undo";
     private const string RedoKey = "@redo";
 
+    /// <summary>
+    /// In a hint's keys, the configured key that clears the marked region.
+    /// </summary>
+    private const string ClearRegionKey = "@clearregion";
+
     private const float LabelFontSize = 16f;
     private const float IconHeight = 32f;
     private const float IconScale = 1.8f;
@@ -76,6 +81,17 @@ internal static class HoeKeyHints
     [
         new Hint { Keys = [UndoKey], Label = _ => UndoHistory.CanUndo ? "$betterhoe_hint_undo" : null },
         new Hint { Keys = [RedoKey], Label = _ => UndoHistory.CanRedo ? "$betterhoe_hint_redo" : null },
+        new Hint
+        {
+            Keys = [ClearRegionKey],
+            Label = ClearRegionLabel,
+        },
+        new Hint
+        {
+            Keys = ["Left Alt", "$KEY_BuildMenu"],
+            Label = s => AreaTool.CanMark(s.AreaTool) && !MarkedRegion.IsEmpty ? "$betterhoe_hint_unmark" : null,
+        },
+        new Hint { Keys = ["Left Alt", "$KEY_Remove"], Label = s => AreaTool.CanMark(s.AreaTool) ? "$betterhoe_hint_mark" : null },
         new Hint { Keys = ["Left Ctrl", ScrollIcon], Label = s => s.AreaTool != null ? "$betterhoe_hint_width" : null },
         new Hint
         {
@@ -124,6 +140,7 @@ internal static class HoeKeyHints
         "$betterhoe_hint_menu", "$hud_place", "$betterhoe_hint_ramp_start", "$betterhoe_hint_ramp_end",
         "$betterhoe_hint_flatten", "$betterhoe_hint_raise", "$betterhoe_hint_lower", "$betterhoe_hint_reset_height",
         "$betterhoe_hint_path", "$betterhoe_hint_paved", "$betterhoe_hint_cultivate", "$betterhoe_hint_reset_paint",
+        "$betterhoe_hint_mark", "$betterhoe_hint_unmark", "$betterhoe_hint_clear_region", "$betterhoe_hint_restore_region",
     ];
 
     /// <summary>
@@ -134,6 +151,20 @@ internal static class HoeKeyHints
         bool locks = state.AreaTool?.Shape is ShapeMode.Flatten or ShapeMode.Ramp;
         string token = AreaTool.HeightLocked ? "$betterhoe_hint_unlock" : "$betterhoe_hint_lock";
         return locks ? token : null;
+    }
+
+    /// <summary>
+    /// The clear key clears marked ground, or with nothing marked marks the last cleared ground again.
+    /// </summary>
+    private static string ClearRegionLabel(State state)
+    {
+        return AreaTool.CanMark(state.AreaTool) switch
+        {
+            false => null,
+            true when !MarkedRegion.IsEmpty => "$betterhoe_hint_clear_region",
+            true when MarkedRegion.CanRestore => "$betterhoe_hint_restore_region",
+            true => null,
+        };
     }
 
     /// <summary>
@@ -482,13 +513,20 @@ internal static class HoeKeyHints
     }
 
     /// <summary>
-    /// The undo and redo shortcuts as their modifier keys and main key, named as the vanilla hints name them.
+    /// The undo and redo shortcuts as their modifier keys and main key, and the clear region key, named as the
+    /// vanilla hints name them.
     /// </summary>
     private static string[] ExpandShortcuts(string[] keys)
     {
         List<string> expanded = [];
         foreach (string key in keys)
         {
+            if (key == ClearRegionKey)
+            {
+                expanded.Add(KeyName(AreaTool.ClearRegionKey));
+                continue;
+            }
+
             if (key is not (UndoKey or RedoKey))
             {
                 expanded.Add(key);
@@ -533,6 +571,16 @@ internal static class HoeKeyHints
             foreach (Hint hint in Hints)
             {
                 width = Mathf.Max(width, LayoutUtility.GetPreferredWidth((RectTransform)hint.Group.transform.GetChild(part)));
+            }
+
+            // The label with the most letters isn't always the widest, so measure every label.
+            if (part == 0 && Hints.Count > 0)
+            {
+                TextMeshProUGUI measure = Hints[0].LabelText;
+                foreach (string token in AllLabels)
+                {
+                    width = Mathf.Max(width, measure.GetPreferredValues(Localization.instance.Localize(token)).x);
+                }
             }
 
             foreach (Hint hint in Hints)
