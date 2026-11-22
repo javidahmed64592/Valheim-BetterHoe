@@ -12,7 +12,7 @@ Shape terrain on a grid with the hoe: level, raise, lower, paint and reset exact
 - **Ramp**: Click a start and an end to build a smooth, constant slope between them, with sides that blend into the ground.
 - **Raise and lower ground**: Lift or sink the whole area by a fixed step. Lower ground is a new hoe tool.
 - **Reset height**: A new hoe tool that undoes every height change in the area, back to the natural ground.
-- **Paint**: Pathen, Paved road and the new Reset paint tool paint exactly the area. Reset paint removes paths and paving so the grass grows back.
+- **Paint**: Pathen, Paved road and the new Cultivate and Reset paint tools paint exactly the area. Cultivate prepares the ground for planting without changing its height, and Reset paint removes paths, paving and cultivated ground so the grass grows back.
 - **Costs**: Shaping the ground is free and painting costs what vanilla charges, with no workbench or stonecutter needed.
 - **Preview**: See the area's outline and the surface it will have before you click, with its size and height under the crosshair.
 - **Undo and redo**: Undo terrain changes with `Ctrl+Z` and redo them with `Ctrl+Y`.
@@ -25,7 +25,7 @@ While one of the hoe's terrain tools is selected, the area it changes is outline
 Level, Raise and Lower ground and Reset height also show the new surface in blue.
 Like vanilla, ground can't be moved more than 8 m above or below its natural height.
 
-With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Ramp, Lower ground, Reset height and Reset paint always use the grid.
+With the grid off, Level ground, Raise ground, Pathen and Paved road work like vanilla. Ramp, Lower ground, Reset height, Cultivate and Reset paint always use the grid.
 
 | Key                | Action                                                        |
 | ------------------ | ------------------------------------------------------------- |
@@ -83,7 +83,7 @@ Settings marked "(Synced with server)" use the server's values.
 
 ## Uninstalling
 
-The terrain changes are ordinary vanilla terrain data, so they stay in the world after the mod is removed. Ramp, Lower ground, Reset height and Reset paint disappear from the hoe, and Raise ground and Paved road need their vanilla materials and stations again.
+The terrain changes are ordinary vanilla terrain data, so they stay in the world after the mod is removed. Ramp, Lower ground, Reset height, Cultivate and Reset paint disappear from the hoe, and Raise ground and Paved road need their vanilla materials and stations again.
 
 ## License
 

@@ -9,7 +9,7 @@ using UnityEngine;
 namespace BetterHoe.Pieces;
 
 /// <summary>
-/// Adds the hoe's new tools (Ramp, Lower ground, Reset height and Reset paint) and sets the costs: shaping the ground is
+/// Adds the hoe's new tools (Ramp, Lower ground, Reset height, Cultivate and Reset paint) and sets the costs: shaping the ground is
 /// free, painting it costs what vanilla charges, and nothing needs a crafting station. The new tools are copies
 /// of vanilla pieces (for the ghost, sounds and dust) that the area tool handles itself, so their vanilla terrain
 /// operation never runs.
@@ -20,6 +20,7 @@ internal static class HoePieces
     public const string RampName = "BetterHoe_Ramp";
     public const string ResetHeightName = "BetterHoe_ResetHeight";
     public const string ResetPaintName = "BetterHoe_ResetPaint";
+    public const string CultivateName = "BetterHoe_Cultivate";
 
     private const string HoeTable = "_HoePieceTable";
     private const string LevelPrefab = "mud_road_v2";
@@ -27,6 +28,7 @@ internal static class HoePieces
     private const string PathPrefab = "path_v2";
     private const string PavedPrefab = "paved_road_v2";
     private const string ReplantPrefab = "replant_v2";
+    private const string CultivatePrefab = "cultivate_v2";
 
     public static void Register()
     {
@@ -62,6 +64,7 @@ internal static class HoePieces
             raiseIcon != null ? IconMaker.FlipVertically(raiseIcon) : null);
         AddPiece(ResetHeightName, LevelPrefab, "$betterhoe_piece_reset_height", "$betterhoe_piece_reset_height_description",
             raiseIcon != null ? IconMaker.ResetArrow(raiseIcon) : null);
+        AddPiece(CultivateName, CultivatePrefab, "$betterhoe_piece_cultivate", "$betterhoe_piece_cultivate_description", null);
         AddPiece(ResetPaintName, ReplantPrefab, "$betterhoe_piece_reset_paint", "$betterhoe_piece_reset_paint_description", null);
     }
 
@@ -84,8 +87,8 @@ internal static class HoePieces
     }
 
     /// <summary>
-    /// Puts Ramp after Level ground, Lower ground and Reset height after Raise ground, and Reset paint after Paved
-    /// road, instead of after the stones.
+    /// Puts Ramp after Level ground, Lower ground and Reset height after Raise ground, and Cultivate and Reset paint
+    /// after Paved road, instead of after the stones.
     /// </summary>
     private static void OrderPieces()
     {
@@ -98,7 +101,8 @@ internal static class HoePieces
         MoveAfter(table.m_pieces, RampName, LevelPrefab);
         MoveAfter(table.m_pieces, LowerName, RaisePrefab);
         MoveAfter(table.m_pieces, ResetHeightName, LowerName);
-        MoveAfter(table.m_pieces, ResetPaintName, PavedPrefab);
+        MoveAfter(table.m_pieces, CultivateName, PavedPrefab);
+        MoveAfter(table.m_pieces, ResetPaintName, CultivateName);
     }
 
     private static void MoveAfter(List<GameObject> pieces, string name, string anchorName)
