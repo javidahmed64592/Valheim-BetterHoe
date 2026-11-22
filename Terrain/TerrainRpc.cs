@@ -187,13 +187,19 @@ internal static class TerrainRpc
     /// <summary>
     /// Same as the end of TerrainComp.DoOperation. Bumping the operation count by one makes the other clients
     /// regrow the grass only around the last operation when they load the new data.
+    /// <para>
+    /// Always saves in full: a paint-only save is skipped when vanilla's paint hash is unchanged, and that hash is
+    /// a plain sum of every painted texel's channels. The paints are single channels (dirt red, cultivated green,
+    /// paved blue), so swapping one for another, as painting over a path or undoing does, keeps the sum, and the
+    /// change was only in memory until the world was loaded again. Only the redraw stays paint-only.
+    /// </para>
     /// </summary>
     private static void Finish(TerrainComp compiler, Vector3 center, float radius, bool paintOnly)
     {
         compiler.m_operations++;
         compiler.m_lastOpPoint = center;
         compiler.m_lastOpRadius = radius;
-        compiler.Save(paintOnly);
+        compiler.Save(paintOnly: false);
         compiler.m_hmap.Poke(1, paintOnly);
         if (ClutterSystem.instance != null)
         {
