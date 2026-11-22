@@ -20,7 +20,7 @@ public class BetterHoePlugin : BaseUnityPlugin
 {
     public const string PluginGUID = "javidahmed64592.betterhoe";
     public const string PluginName = "Better Hoe";
-    public const string PluginVersion = "0.1.0";
+    public const string PluginVersion = "0.2.0";
 
     private Harmony _harmony;
 

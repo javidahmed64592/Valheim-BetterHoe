@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - New Cultivate tool: cultivates exactly the marked area for planting, without changing its height and without needing a cultivator.
-- Fixed painting and undoing paint sometimes not being saved: swapping one paint for another (such as undoing a path or cultivated ground) came back after logging out and in again.
+- Fixed paint changes sometimes being lost on logging out: swapping one paint for another, such as undoing a path or cultivated ground, wasn't saved.
 
 ## 0.1.0
 
