@@ -173,6 +173,9 @@ internal static class AreaTool
             case HoePieces.ResetHeightName:
                 own = true;
                 return HoeTool.ResetHeight;
+            case HoePieces.CultivateName:
+                own = true;
+                return HoeTool.PaintCultivate;
             case HoePieces.ResetPaintName:
                 own = true;
                 return HoeTool.PaintReset;

@@ -20,6 +20,7 @@ internal sealed class HoeTool
     public static readonly HoeTool ResetHeight = new(ShapeMode.Reset, null, "$betterhoe_tool_reset_height", "$betterhoe_hint_reset_height");
     public static readonly HoeTool PaintDirt = new(ShapeMode.None, TerrainModifier.PaintType.Dirt, "$betterhoe_tool_path", "$betterhoe_hint_path");
     public static readonly HoeTool PaintPaved = new(ShapeMode.None, TerrainModifier.PaintType.Paved, "$betterhoe_tool_paved", "$betterhoe_hint_paved");
+    public static readonly HoeTool PaintCultivate = new(ShapeMode.None, TerrainModifier.PaintType.Cultivate, "$betterhoe_tool_cultivate", "$betterhoe_hint_cultivate");
     public static readonly HoeTool PaintReset = new(ShapeMode.None, TerrainModifier.PaintType.Reset, "$betterhoe_tool_reset_paint", "$betterhoe_hint_reset_paint");
 
     public ShapeMode Shape { get; }

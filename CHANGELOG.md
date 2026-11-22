@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- New Cultivate tool: cultivates exactly the marked area for planting, without changing its height and without needing a cultivator.
+
 ## 0.1.0
 
 - First release.

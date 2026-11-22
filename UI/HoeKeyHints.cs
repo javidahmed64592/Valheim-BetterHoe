@@ -123,7 +123,7 @@ internal static class HoeKeyHints
         "$hud_rotate", "$betterhoe_hint_lock", "$betterhoe_hint_unlock", "$betterhoe_hint_ramp_cancel",
         "$betterhoe_hint_menu", "$hud_place", "$betterhoe_hint_ramp_start", "$betterhoe_hint_ramp_end",
         "$betterhoe_hint_flatten", "$betterhoe_hint_raise", "$betterhoe_hint_lower", "$betterhoe_hint_reset_height",
-        "$betterhoe_hint_path", "$betterhoe_hint_paved", "$betterhoe_hint_reset_paint",
+        "$betterhoe_hint_path", "$betterhoe_hint_paved", "$betterhoe_hint_cultivate", "$betterhoe_hint_reset_paint",
     ];
 
     /// <summary>
