@@ -34,6 +34,14 @@ internal static class AreaTool
     private static ConfigEntry<float> _step;
     private static ConfigEntry<int> _maxSize;
     private static ConfigEntry<float> _blend;
+    private static ConfigEntry<int> _maxRegionSize;
+    private static ConfigEntry<KeyCode> _clearRegionKey;
+
+    /// <summary>
+    /// True from an Alt+middle-click that hit the region size limit until the button is let go, so the warning
+    /// shows once per sweep.
+    /// </summary>
+    private static bool _regionLimitWarned;
 
     private static readonly GridOverlay Overlay = new();
     private static readonly Readout Readout = new();
@@ -80,6 +88,9 @@ internal static class AreaTool
     private static int Length => Mathf.Clamp(_length.Value, 1, MaxSize);
     private static float Step => _step.Value;
     private static float Blend => _blend.Value;
+    private static int MaxRegionSize => _maxRegionSize.Value;
+
+    internal static KeyCode ClearRegionKey => _clearRegionKey.Value;
 
     public static void BindConfig(ConfigFile config)
     {
@@ -100,6 +111,13 @@ internal static class AreaTool
             new ConfigDescription("Largest width or length in metres of the area. (Synced with server)",
                 new AcceptableValueRange<int>(1, 64),
                 new ConfigurationManagerAttributes { IsAdminOnly = true }));
+        _maxRegionSize = config.Bind("Server", "Max Region Size", 64,
+            new ConfigDescription("Largest width or length in metres of ground marked with Alt+Middle-Click, which a tool " +
+                "then changes in one use. (Synced with server)",
+                new AcceptableValueRange<int>(1, 128),
+                new ConfigurationManagerAttributes { IsAdminOnly = true }));
+        _clearRegionKey = config.Bind("Keybinds", "Clear Marked Region", KeyCode.Backspace,
+            "Unmarks all the ground marked with Alt+Middle-Click.");
 
         _blend = config.Bind("Ramp", "Edge Blend", 2f,
             new ConfigDescription("Metres on each side of a ramp where the ground eases into the slope (0, 1, 2, 3, 4 or 6). " +
@@ -269,6 +287,7 @@ internal static class AreaTool
             _lockedHeight = null;
             _rampStart = null;
             UndoHistory.Reset();
+            MarkedRegion.Reset();
             Hide();
             return;
         }
@@ -288,7 +307,7 @@ internal static class AreaTool
             _rampStart = null;
         }
 
-        if (tool != null && !own && Keys.Ctrl && Input.GetMouseButtonDown(1))
+        if (tool != null && !own && Keys.Ctrl && !Keys.Alt && Input.GetMouseButtonDown(1))
         {
             _gridEnabled.Value = !_gridEnabled.Value;
             player.Message(MessageHud.MessageType.TopLeft, _gridEnabled.Value ? "$betterhoe_grid_on" : "$betterhoe_grid_off");
@@ -302,6 +321,7 @@ internal static class AreaTool
 
         Active = true;
         HandleInput(player, tool);
+        HandleMarking(player, tool);
 
         if (!HasAim)
         {
@@ -317,8 +337,178 @@ internal static class AreaTool
 
         Area area = CurrentArea();
         float value = ToolValue(tool);
+        if (!MarkedRegion.IsEmpty)
+        {
+            Overlay.ShowRegion(_aimPoint, area, tool, value);
+            Readout.Show(RegionReadoutText(tool, value));
+            return;
+        }
+
         Overlay.Show(_aimPoint, area, tool, value);
         Readout.Show(ReadoutText(tool, area, value));
+    }
+
+    // ----- Marked region -----
+
+    /// <summary>
+    /// True when the marking keys work: any area tool but the ramp, which has no area to mark with.
+    /// </summary>
+    internal static bool CanMark(HoeTool tool)
+    {
+        return tool != null && tool != HoeTool.Ramp;
+    }
+
+    /// <summary>
+    /// Alt+middle-click marks the area under the aim and Alt+right-click unmarks it; holding either sweeps it
+    /// along as the aim moves. The clear key unmarks everything, or with nothing marked marks the last cleared
+    /// ground again.
+    /// </summary>
+    private static void HandleMarking(Player player, HoeTool tool)
+    {
+        if (!Input.GetMouseButton(2))
+        {
+            _regionLimitWarned = false;
+        }
+
+        if (Input.GetKeyDown(ClearRegionKey) && CanMark(tool))
+        {
+            if (!MarkedRegion.IsEmpty)
+            {
+                MarkedRegion.Clear();
+                player.Message(MessageHud.MessageType.TopLeft, "$betterhoe_region_cleared");
+            }
+            else if (MarkedRegion.CanRestore)
+            {
+                int cells = MarkedRegion.Restore();
+                player.Message(MessageHud.MessageType.TopLeft, Localization.instance.Localize("$betterhoe_region_restored",
+                    cells.ToString(CultureInfo.InvariantCulture)));
+            }
+        }
+
+        // Shift (run) and Ctrl (sneak) are fine, so you can mark ground while running or sneaking.
+        if (!CanMark(tool) || !Keys.Alt || !HasAim)
+        {
+            return;
+        }
+
+        if (Input.GetMouseButton(2) && !MarkedRegion.Mark(CurrentArea(), MaxRegionSize) && !_regionLimitWarned)
+        {
+            _regionLimitWarned = true;
+            player.Message(MessageHud.MessageType.Center, Localization.instance.Localize("$betterhoe_region_too_big",
+                MaxRegionSize.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (Input.GetMouseButton(1))
+        {
+            // The build menu stays shut until the button is let go (see Player_UpdateBuildGuiInput_Patch).
+            BlocksMenu = true;
+            _ = MarkedRegion.Unmark(CurrentArea());
+        }
+    }
+
+    /// <summary>
+    /// Uses the tool on every marked cell at once. Vanilla charges one use, as for the area.
+    /// </summary>
+    private static bool TryPlaceRegion(Player player, Piece piece, HoeTool tool, out bool placed)
+    {
+        placed = false;
+        List<(int x, int z)> vertices = MarkedRegion.Vertices();
+        if (!CheckAccess(player, vertices))
+        {
+            return true;
+        }
+
+        float value = ToolValue(tool);
+        TerrainEdits edits = new();
+        foreach ((int x, int z) in vertices)
+        {
+            switch (tool.Shape)
+            {
+                case ShapeMode.None:
+                    break;
+                case ShapeMode.Flatten:
+                    edits.SetHeight(x, z, value);
+                    break;
+                case ShapeMode.Reset:
+                    edits.ResetHeight(x, z);
+                    break;
+                default:
+                    edits.AddHeight(x, z, value);
+                    break;
+            }
+        }
+
+        if (tool.Paint != null)
+        {
+            foreach (Area row in MarkedRegion.Rows())
+            {
+                edits.Paint(row.MinX, row.MinZ, row.MaxX, row.MaxZ, tool.PaintColor);
+            }
+        }
+
+        Area bounds = MarkedRegion.Bounds;
+        Vector3 center = new(bounds.CenterX, _aimPoint.y, bounds.CenterZ);
+        List<TerrainSnapshot> before = [];
+        if (!edits.Send(center, bounds.Radius + 1f, before))
+        {
+            player.Message(MessageHud.MessageType.Center, "$msg_invalidplacement");
+            return true;
+        }
+
+        UndoHistory.Record(tool.NameToken, center, bounds.Radius + 1f, vertices, before);
+
+        PlayEffects(player, piece, center);
+        placed = true;
+        return true;
+    }
+
+    private static string RegionReadoutText(HoeTool tool, float value)
+    {
+        Area bounds = MarkedRegion.Bounds;
+        string text = Localization.instance.Localize("$betterhoe_readout_region",
+            Localization.instance.Localize(tool.NameToken),
+            MarkedRegion.CellCount.ToString(CultureInfo.InvariantCulture),
+            bounds.SizeX.ToString(CultureInfo.InvariantCulture),
+            bounds.SizeZ.ToString(CultureInfo.InvariantCulture));
+        text += ToolValueText(tool, value);
+
+        if ((tool.Shape is ShapeMode.Flatten or ShapeMode.Raise or ShapeMode.Lower) && RegionCountAtLimit(tool, value) > 0)
+        {
+            text += "\n<color=#ff8060>" + Localization.instance.Localize("$betterhoe_readout_limit") + "</color>";
+        }
+
+        return text;
+    }
+
+    private static (int version, HoeTool tool, float value) _regionLimitKey;
+    private static int _regionLimitCount;
+    private static int _regionLimitFrame = -100;
+
+    /// <summary>
+    /// How many of the region's vertices the edit would push past vanilla's 8 m limit.
+    /// </summary>
+    private static int RegionCountAtLimit(HoeTool tool, float value)
+    {
+        (int, HoeTool, float) key = (MarkedRegion.Version, tool, value);
+        if (key.Equals(_regionLimitKey) && Time.frameCount - _regionLimitFrame < LimitRefreshFrames * 2)
+        {
+            return _regionLimitCount;
+        }
+
+        int count = 0;
+        foreach ((int x, int z) in MarkedRegion.Vertices())
+        {
+            if (TerrainHeights.TryGet(x, z, out float height, out float natural)
+                && Mathf.Abs((tool.Shape == ShapeMode.Flatten ? value : height + value) - natural) > TerrainRpc.MaxLevelDelta + 0.01f)
+            {
+                count++;
+            }
+        }
+
+        _regionLimitKey = key;
+        _regionLimitCount = count;
+        _regionLimitFrame = Time.frameCount;
+        return count;
     }
 
     // ----- Ramp -----
@@ -591,6 +781,11 @@ internal static class AreaTool
             return TryPlaceRamp(player, piece, out placed);
         }
 
+        if (!MarkedRegion.IsEmpty)
+        {
+            return TryPlaceRegion(player, piece, tool, out placed);
+        }
+
         Area area = CurrentArea();
         List<(int x, int z)> vertices = AreaVertices(area);
         if (!CheckAccess(player, vertices))
@@ -725,19 +920,7 @@ internal static class AreaTool
     {
         string text = Localization.instance.Localize("$betterhoe_readout_area",
             Localization.instance.Localize(tool.NameToken), area.SizeX.ToString(CultureInfo.InvariantCulture), area.SizeZ.ToString(CultureInfo.InvariantCulture));
-
-        switch (tool.Shape)
-        {
-            case ShapeMode.Flatten:
-                text += "\n" + Localization.instance.Localize(
-                    _lockedHeight.HasValue ? "$betterhoe_readout_height_locked" : "$betterhoe_readout_height", Metres(value));
-                break;
-            case ShapeMode.Raise:
-            case ShapeMode.Lower:
-                text += "\n" + Localization.instance.Localize("$betterhoe_readout_step",
-                    (value >= 0f ? "+" : "") + Metres(value));
-                break;
-        }
+        text += ToolValueText(tool, value);
 
         if ((tool.Shape is ShapeMode.Flatten or ShapeMode.Raise or ShapeMode.Lower) && CountAtLimit(tool, area, value) > 0)
         {
@@ -745,6 +928,21 @@ internal static class AreaTool
         }
 
         return text;
+    }
+
+    /// <summary>
+    /// The readout's height or step line, with its line break, or nothing for tools without one.
+    /// </summary>
+    private static string ToolValueText(HoeTool tool, float value)
+    {
+        return tool.Shape switch
+        {
+            ShapeMode.Flatten => "\n" + Localization.instance.Localize(
+                _lockedHeight.HasValue ? "$betterhoe_readout_height_locked" : "$betterhoe_readout_height", Metres(value)),
+            ShapeMode.Raise or ShapeMode.Lower => "\n" + Localization.instance.Localize("$betterhoe_readout_step",
+                (value >= 0f ? "+" : "") + Metres(value)),
+            _ => "",
+        };
     }
 
     /// <summary>
