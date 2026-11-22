@@ -51,24 +51,58 @@ internal static class MarkedRegion
     }
 
     /// <summary>
-    /// Marks every cell of the area. Returns false, marking nothing, when the region would then be wider or longer
-    /// than `maxSize` metres.
+    /// The part of the area that can be marked without the region becoming wider or longer than `maxSize`
+    /// metres, or null when none of it can.
+    /// </summary>
+    public static Area? AllowedPart(Area area, int maxSize)
+    {
+        return ClipAxis(area.MinX, area.MaxX, _minX, _maxX, maxSize, out int minX, out int maxX)
+            && ClipAxis(area.MinZ, area.MaxZ, _minZ, _maxZ, maxSize, out int minZ, out int maxZ)
+            ? new Area(minX, minZ, maxX - minX, maxZ - minZ)
+            : null;
+    }
+
+    /// <summary>
+    /// Clips [from, to) along one axis to where the region, from `regionMin` to `regionMax`, can still grow
+    /// without spanning more than `maxSize`. An empty region only limits the area to its first `maxSize` metres.
+    /// </summary>
+    private static bool ClipAxis(int from, int to, int regionMin, int regionMax, int maxSize, out int min, out int max)
+    {
+        if (IsEmpty)
+        {
+            min = from;
+            max = Mathf.Min(to, from + maxSize);
+            return max > min;
+        }
+
+        min = Mathf.Max(from, regionMax - maxSize);
+        max = Mathf.Min(to, regionMin + maxSize);
+
+        // An area wider than the room left on both sides of the region keeps the side nearest its start.
+        if (Mathf.Max(max, regionMax) - Mathf.Min(min, regionMin) > maxSize)
+        {
+            max = Mathf.Min(max, Mathf.Min(min, regionMin) + maxSize);
+        }
+
+        return max > min;
+    }
+
+    /// <summary>
+    /// Marks the cells of the area that fit within `maxSize` metres (see <see cref="AllowedPart"/>). Returns
+    /// false when some of the area didn't fit.
     /// </summary>
     public static bool Mark(Area area, int maxSize)
     {
-        int minX = IsEmpty ? area.MinX : Mathf.Min(_minX, area.MinX);
-        int minZ = IsEmpty ? area.MinZ : Mathf.Min(_minZ, area.MinZ);
-        int maxX = IsEmpty ? area.MaxX : Mathf.Max(_maxX, area.MaxX);
-        int maxZ = IsEmpty ? area.MaxZ : Mathf.Max(_maxZ, area.MaxZ);
-        if (maxX - minX > maxSize || maxZ - minZ > maxSize)
+        Area? allowed = AllowedPart(area, maxSize);
+        if (allowed is not Area part)
         {
             return false;
         }
 
         bool changed = false;
-        for (int x = area.MinX; x < area.MaxX; x++)
+        for (int x = part.MinX; x < part.MaxX; x++)
         {
-            for (int z = area.MinZ; z < area.MaxZ; z++)
+            for (int z = part.MinZ; z < part.MaxZ; z++)
             {
                 changed |= Cells.Add((x, z));
             }
@@ -76,11 +110,11 @@ internal static class MarkedRegion
 
         if (changed)
         {
-            (_minX, _minZ, _maxX, _maxZ) = (minX, minZ, maxX, maxZ);
+            RecalculateBounds();
             Version++;
         }
 
-        return true;
+        return part.Equals(area);
     }
 
     /// <summary>

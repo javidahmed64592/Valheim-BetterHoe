@@ -162,12 +162,13 @@ internal sealed class GridOverlay
 
     /// <summary>
     /// The marked region with the tool's result previewed over all of it, and the area under the aim (the brush
-    /// that marks and unmarks) outlined on the ground.
+    /// that marks and unmarks) on the ground: only the part of it that can be marked, or with none of it, the
+    /// whole brush outlined in red.
     /// </summary>
-    public void ShowRegion(Vector3 aim, Area brush, HoeTool tool, float value)
+    public void ShowRegion(Vector3 aim, Area brush, Area? allowed, HoeTool tool, float value)
     {
         ShowGrid(aim);
-        ShowArea((MarkedRegion.Version, brush, tool, value), () => BuildRegion(brush, tool, value, aim.y), RegionRefreshFrames);
+        ShowArea((MarkedRegion.Version, brush, allowed, tool, value), () => BuildRegion(brush, allowed, tool, value, aim.y), RegionRefreshFrames);
     }
 
     private void ShowArea(object key, System.Action build, int refreshFrames = RefreshFrames)
@@ -355,7 +356,7 @@ internal sealed class GridOverlay
 
     // ----- Marked region -----
 
-    private void BuildRegion(Area brush, HoeTool tool, float value, float fallbackHeight)
+    private void BuildRegion(Area fullBrush, Area? allowed, HoeTool tool, float value, float fallbackHeight)
     {
         MeshBuilder fill = new();
         MeshBuilder lines = new();
@@ -442,7 +443,10 @@ internal sealed class GridOverlay
             }
         }
 
-        // The brush: a faint gold fill and outline on the ground, a little above the region's fill.
+        // The brush: a faint gold fill and outline on the ground, a little above the region's fill. Past the size
+        // limit only the part that can be marked, or in red with none of it.
+        Area brush = allowed ?? fullBrush;
+        Color brushColor = allowed.HasValue ? _areaColor.Value : OutOfRangeColor;
         float[,] brushGround = new float[brush.SizeX + 1, brush.SizeZ + 1];
         for (int i = 0; i <= brush.SizeX; i++)
         {
@@ -452,9 +456,9 @@ internal sealed class GridOverlay
             }
         }
 
-        Color brushFill = _areaColor.Value;
-        brushFill.a = _fillAlpha.Value;
-        for (int i = 0; i < brush.SizeX; i++)
+        Color brushFill = brushColor;
+        brushFill.a = allowed.HasValue ? _fillAlpha.Value : 0f;
+        for (int i = 0; allowed.HasValue && i < brush.SizeX; i++)
         {
             for (int j = 0; j < brush.SizeZ; j++)
             {
@@ -469,10 +473,15 @@ internal sealed class GridOverlay
             }
         }
 
-        AddOutline(lines, brush, (i, j) => brushGround[i, j], width, _areaColor.Value);
+        AddOutline(lines, brush, (i, j) => brushGround[i, j], width, brushColor);
 
         _area.Apply(fill, lines);
     }
+
+    /// <summary>
+    /// The brush outline when none of it can be marked because the region would be too big.
+    /// </summary>
+    private static readonly Color OutOfRangeColor = new(1f, 0.38f, 0.3f, 0.9f);
 
     /// <summary>
     /// A cell's four edges: the neighbour across it, and the edge's two ends, as offsets from the cell's

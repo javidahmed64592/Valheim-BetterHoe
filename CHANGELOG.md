@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-- Mark ground to change it all at once: sweep the area over the grid with `Alt+Middle-Click` to mark any shape (`Alt+Right-Click` unmarks, `Backspace` clears, and pressing it again with nothing marked brings the last cleared ground back), then one click levels, raises, lowers, paints or resets all of it. It can be up to 64 m across (`Max Region Size`, set by the server).
+- Mark ground to change it all at once: sweep the area over the grid with `Alt+Middle-Click` to mark any shape (`Alt+Right-Click` unmarks, `Backspace` clears, and pressing it again with nothing marked brings the last cleared ground back), then one click levels, raises, lowers, paints or resets all of it. It can be up to 64 m across (`Max Region Size`, set by the server); at the limit, only the part of the area that fits is marked.
 
 ## 0.2.0
 

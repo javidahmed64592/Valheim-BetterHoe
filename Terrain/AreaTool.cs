@@ -38,8 +38,8 @@ internal static class AreaTool
     private static ConfigEntry<KeyCode> _clearRegionKey;
 
     /// <summary>
-    /// True from an Alt+middle-click that hit the region size limit until the button is let go, so the warning
-    /// shows once per sweep.
+    /// True from an Alt+middle-click that reached the region size limit until the button is let go, so the
+    /// warning shows once per sweep. Past the limit, only the part of the area that fits is marked.
     /// </summary>
     private static bool _regionLimitWarned;
 
@@ -339,7 +339,8 @@ internal static class AreaTool
         float value = ToolValue(tool);
         if (!MarkedRegion.IsEmpty)
         {
-            Overlay.ShowRegion(_aimPoint, area, tool, value);
+            // The brush shows only the part that can be marked; with none of it, its outline shows in red.
+            Overlay.ShowRegion(_aimPoint, area, MarkedRegion.AllowedPart(area, MaxRegionSize), tool, value);
             Readout.Show(RegionReadoutText(tool, value));
             return;
         }
