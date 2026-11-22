@@ -158,17 +158,13 @@ internal static class HoeKeyHints
     /// </summary>
     private static string ClearRegionLabel(State state)
     {
-        if (!AreaTool.CanMark(state.AreaTool))
+        return AreaTool.CanMark(state.AreaTool) switch
         {
-            return null;
-        }
-
-        if (!MarkedRegion.IsEmpty)
-        {
-            return "$betterhoe_hint_clear_region";
-        }
-
-        return MarkedRegion.CanRestore ? "$betterhoe_hint_restore_region" : null;
+            false => null,
+            true when !MarkedRegion.IsEmpty => "$betterhoe_hint_clear_region",
+            true when MarkedRegion.CanRestore => "$betterhoe_hint_restore_region",
+            true => null,
+        };
     }
 
     /// <summary>

@@ -376,13 +376,13 @@ internal sealed class GridOverlay
 
         float Preview(int x, int z)
         {
-            (float ground, float natural) h = heights.TryGetValue((x, z), out (float, float) found) ? found : (fallbackHeight, fallbackHeight);
+            (float ground, float natural) = heights.TryGetValue((x, z), out (float, float) found) ? found : (fallbackHeight, fallbackHeight);
             return tool.Shape switch
             {
                 ShapeMode.Flatten => value,
-                ShapeMode.Raise or ShapeMode.Lower => h.ground + value,
-                ShapeMode.Reset => h.natural,
-                _ => h.ground,
+                ShapeMode.Raise or ShapeMode.Lower => ground + value,
+                ShapeMode.Reset => natural,
+                _ => ground,
             };
         }
 
