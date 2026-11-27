@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- If a game update breaks part of the mod, only that part turns off and the rest keeps working: the key hints and the hoe menu's "Terrain Tools" title can each turn off while the grid, marking, ramps and undo still work. The log says which part is off, in one line. If shaping terrain itself breaks, the whole mod turns off cleanly instead of throwing errors.
+- New `DisabledFeatures` setting under `[Debug]`, for testing: turns parts of the mod off by name.
+- Updated Jotunn to 2.30.3.
+
 ## 0.3.1
 
 - No longer logs a warning about a missing LiberationSans SDF font.
