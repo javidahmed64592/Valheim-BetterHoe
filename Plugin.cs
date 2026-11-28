@@ -31,10 +31,14 @@ public class BetterHoePlugin : BaseUnityPlugin
         UndoHistory.BindConfig(Config);
         GridOverlay.BindConfig(Config);
         Translations.Load();
-        HoePieces.Register();
 
         _harmony = new Harmony(PluginGUID);
-        _harmony.PatchAll();
+        if (!SafePatcher.PatchAll(_harmony, Config, Logger))
+        {
+            return;
+        }
+
+        HoePieces.Register();
     }
 
     private void OnDestroy()
@@ -46,6 +50,11 @@ public class BetterHoePlugin : BaseUnityPlugin
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1822", Justification = "Unity message")]
     private void Update()
     {
+        if (!SafePatcher.ModEnabled)
+        {
+            return;
+        }
+
         Player player = Player.m_localPlayer;
         PhantomHoe.Update(player);
         AreaTool.Update(player);

@@ -91,12 +91,14 @@ The mod adds on-screen keyhints with all the listed keybinds.
 
 Settings are in the BepInEx config file `javidahmed64592.betterhoe.cfg`.
 Settings marked "(Synced with server)" use the server's values.
+`DisabledFeatures` under `[Debug]` is for testing: it turns parts of the mod off by name. Leave it empty to play normally.
 
 ## Compatibility
 
 - Every player and the server need the mod, because the terrain changes are sent to whoever looks after that piece of ground.
 - Mods that change the hoe's tools or how terrain is edited may clash with the grid.
 - Works alongside [BetterHammer](https://thunderstore.io/c/valheim/p/Aestelwen/BetterHammer/): `B` takes out its hammer and `N` this mod's hoe.
+- If a game update breaks part of the mod, that part turns off on its own and the log says which one; the rest keeps working.
 - This mod has not been tested with a gamepad, only with keyboard and mouse.
 
 ## Uninstalling
