@@ -4,6 +4,8 @@
 
 - If a game update breaks part of the mod, only that part turns off and the rest keeps working: the key hints and the hoe menu's "Terrain Tools" title can each turn off while the grid, marking, ramps and undo still work. The log says which part is off, in one line. If shaping terrain itself breaks, the whole mod turns off cleanly instead of throwing errors.
 - New `DisabledFeatures` setting under `[Debug]`, for testing: turns parts of the mod off by name.
+- Every keybind is now a key plus an optional modifier (`None`, `Shift`, `Ctrl` or `Alt`), both picked from a list in the config, so combos like Shift + B can be bound without typing them. Settings saved by an older version carry over.
+- With `debugmode` on, this mod's key combos no longer also do what their key does in debug mode, such as Ctrl+Z also toggling flying. A key on its own still does both.
 - Updated Jotunn to 2.30.3.
 
 ## 0.3.1
