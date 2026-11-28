@@ -35,7 +35,6 @@ internal static class AreaTool
     private static ConfigEntry<int> _maxSize;
     private static ConfigEntry<float> _blend;
     private static ConfigEntry<int> _maxRegionSize;
-    private static ConfigEntry<KeyCode> _clearRegionKey;
 
     /// <summary>
     /// True from an Alt+middle-click that reached the region size limit until the button is let go, so the
@@ -90,7 +89,7 @@ internal static class AreaTool
     private static float Blend => _blend.Value;
     private static int MaxRegionSize => _maxRegionSize.Value;
 
-    internal static KeyCode ClearRegionKey => _clearRegionKey.Value;
+    internal static KeyBinding ClearRegionKey { get; private set; }
 
     public static void BindConfig(ConfigFile config)
     {
@@ -116,7 +115,7 @@ internal static class AreaTool
                 "then changes in one use. (Synced with server)",
                 new AcceptableValueRange<int>(1, 128),
                 new ConfigurationManagerAttributes { IsAdminOnly = true }));
-        _clearRegionKey = config.Bind("Keybinds", "Clear Marked Region", KeyCode.Backspace,
+        ClearRegionKey = KeyBinding.Bind(config, "Keybinds", "Clear Marked Region", KeyCode.Backspace, KeyModifier.None,
             "Unmarks all the ground marked with Alt+Middle-Click.");
 
         _blend = config.Bind("Ramp", "Edge Blend", 2f,
@@ -371,7 +370,7 @@ internal static class AreaTool
             _regionLimitWarned = false;
         }
 
-        if (Input.GetKeyDown(ClearRegionKey) && CanMark(tool))
+        if (ClearRegionKey.IsDown() && CanMark(tool))
         {
             if (!MarkedRegion.IsEmpty)
             {

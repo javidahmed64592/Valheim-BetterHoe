@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 
+using BetterHoe.Core;
 using BetterHoe.History;
 using BetterHoe.Terrain;
 
@@ -513,50 +514,31 @@ internal static class HoeKeyHints
     }
 
     /// <summary>
-    /// The undo and redo shortcuts as their modifier keys and main key, and the clear region key, named as the
-    /// vanilla hints name them.
+    /// The undo, redo and clear region keybinds as their modifier and key, named as the vanilla hints name them.
     /// </summary>
     private static string[] ExpandShortcuts(string[] keys)
     {
         List<string> expanded = [];
         foreach (string key in keys)
         {
-            if (key == ClearRegionKey)
+            KeyBinding binding = key switch
             {
-                expanded.Add(KeyName(AreaTool.ClearRegionKey));
-                continue;
-            }
-
-            if (key is not (UndoKey or RedoKey))
+                UndoKey => UndoHistory.UndoKey,
+                RedoKey => UndoHistory.RedoKey,
+                ClearRegionKey => AreaTool.ClearRegionKey,
+                _ => null,
+            };
+            if (binding == null)
             {
                 expanded.Add(key);
-                continue;
             }
-
-            BepInEx.Configuration.KeyboardShortcut shortcut = key == UndoKey ? UndoHistory.UndoKey : UndoHistory.RedoKey;
-            foreach (KeyCode modifier in shortcut.Modifiers)
+            else
             {
-                expanded.Add(KeyName(modifier));
+                expanded.AddRange(binding.HintKeys());
             }
-
-            expanded.Add(KeyName(shortcut.MainKey));
         }
 
         return [.. expanded];
-    }
-
-    private static string KeyName(KeyCode key)
-    {
-        return key switch
-        {
-            KeyCode.LeftControl => "Left Ctrl",
-            KeyCode.RightControl => "Right Ctrl",
-            KeyCode.LeftShift => "Left Shift",
-            KeyCode.RightShift => "Right Shift",
-            KeyCode.LeftAlt => "Left Alt",
-            KeyCode.RightAlt => "Right Alt",
-            _ => key.ToString(),
-        };
     }
 
     /// <summary>

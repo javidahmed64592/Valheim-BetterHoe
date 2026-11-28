@@ -1,5 +1,7 @@
 using BepInEx.Configuration;
 
+using BetterHoe.Core;
+
 using Jotunn.Configs;
 using Jotunn.Managers;
 
@@ -18,7 +20,7 @@ internal static class PhantomHoe
     private const string HoePrefabName = "Hoe";
     private const string ButtonName = "BetterHoe_EquipHoe";
 
-    private static ConfigEntry<KeyCode> _key;
+    private static KeyBinding _key;
     private static bool _knownRecipesRefreshed;
 
     internal static ItemDrop.ItemData Item { get; private set; }
@@ -27,14 +29,14 @@ internal static class PhantomHoe
 
     public static void BindConfig(ConfigFile config)
     {
-        _key = config.Bind("Keybinds", "Equip Hoe", KeyCode.N,
+        _key = KeyBinding.Bind(config, "Keybinds", "Equip Hoe", KeyCode.N, KeyModifier.None,
             "Puts a hoe in your hand, or puts it away, without needing a hoe in your inventory. " +
             "Rebindable from the in-game controls menu.");
 
         InputManager.Instance.AddButton(BetterHoePlugin.PluginGUID, new ButtonConfig
         {
             Name = ButtonName,
-            Config = _key,
+            Config = _key.KeyEntry,
         });
     }
 
@@ -63,7 +65,7 @@ internal static class PhantomHoe
             player.UpdateKnownRecipesList();
         }
 
-        if (!InputBlocked() && ZInput.GetButtonDown(ButtonQueryName))
+        if (!InputBlocked() && ZInput.GetButtonDown(ButtonQueryName) && _key.Accepts())
         {
             Toggle(player);
         }
